@@ -12,14 +12,12 @@ from typing import Any, BinaryIO, Optional
 from compress_utils import compress, decompress
 
 from .config import get_config
-from .format import (
-    HEADER_SIZE, encode_header, decode_header,
-    is_zpickle_data
-)
+from .format import HEADER_SIZE, encode_header, decode_header, is_zpickle_data
+
 
 class Pickler(pickle.Pickler):
     """Subclass of pickle.Pickler that produces compressed output.
-    
+
     Args:
         file: A file-like object with a write method
         protocol: The pickle protocol to use
@@ -27,15 +25,24 @@ class Pickler(pickle.Pickler):
         buffer_callback: Callback for handling buffer objects
         algorithm: Compression algorithm to use (overrides global config)
         level: Compression level to use (overrides global config)
-        
+
     Example:
         >>> import zpickle
         >>> with open('data.zpkl', 'wb') as f:
         ...     pickler = zpickle.Pickler(f)
         ...     pickler.dump({"example": "data"})
     """
-    def __init__(self, file, protocol=None, *, fix_imports=True, 
-                buffer_callback=None, algorithm=None, level=None):
+
+    def __init__(
+        self,
+        file,
+        protocol=None,
+        *,
+        fix_imports=True,
+        buffer_callback=None,
+        algorithm=None,
+        level=None
+    ):
         self.file = file
         config = get_config()
         self.algorithm = algorithm or config.algorithm
@@ -47,14 +54,15 @@ class Pickler(pickle.Pickler):
 
         # Initialize the pickler with our buffer
         super().__init__(
-            self._buffer, protocol, 
-            fix_imports=fix_imports, 
-            buffer_callback=buffer_callback
+            self._buffer,
+            protocol,
+            fix_imports=fix_imports,
+            buffer_callback=buffer_callback,
         )
 
     def dump(self, obj):
         """Write a compressed pickled representation of obj to the file.
-        
+
         Args:
             obj: The Python object to pickle and compress
         """
@@ -68,9 +76,9 @@ class Pickler(pickle.Pickler):
         self._buffer.truncate(0)
 
         # Skip compression for very small objects or if algorithm is 'none'
-        if len(pickled_data) < self.min_size or self.algorithm == 'none':
+        if len(pickled_data) < self.min_size or self.algorithm == "none":
             # Still add header for consistency
-            header = encode_header('none', 0)
+            header = encode_header("none", 0)
             self.file.write(header + pickled_data)
             return
 
@@ -81,24 +89,27 @@ class Pickler(pickle.Pickler):
         header = encode_header(self.algorithm, self.level)
         self.file.write(header + compressed_data)
 
+
 class Unpickler(pickle.Unpickler):
     """Subclass of pickle.Unpickler that handles compressed input.
-    
+
     Args:
         file: A file-like object with read and seek methods
         fix_imports: Fix imports for Python 2 compatibility
         encoding: Encoding for 8-bit string instances unpickled from str
         errors: Error handling scheme for decode errors
         buffers: Optional iterables of buffer-enabled objects
-        
+
     Example:
         >>> import zpickle
         >>> with open('data.zpkl', 'rb') as f:
         ...     unpickler = zpickle.Unpickler(f)
         ...     data = unpickler.load()
     """
-    def __init__(self, file, *, fix_imports=True, encoding='ASCII', 
-                errors='strict', buffers=None):
+
+    def __init__(
+        self, file, *, fix_imports=True, encoding="ASCII", errors="strict", buffers=None
+    ):
         self.file = file
 
         # Read the header to check format
@@ -112,7 +123,7 @@ class Unpickler(pickle.Unpickler):
             compressed_data = file.read()
 
             # If algorithm is 'none', data wasn't compressed
-            if algorithm == 'none':
+            if algorithm == "none":
                 pickled_data = compressed_data
             else:
                 # Decompress the data
@@ -123,11 +134,11 @@ class Unpickler(pickle.Unpickler):
 
             # Initialize the unpickler with our buffer
             super().__init__(
-                self._buffer, 
-                fix_imports=fix_imports, 
-                encoding=encoding, 
-                errors=errors, 
-                buffers=buffers
+                self._buffer,
+                fix_imports=fix_imports,
+                encoding=encoding,
+                errors=errors,
+                buffers=buffers,
             )
         else:
             # Assume it's regular pickle data, reset file position
@@ -135,9 +146,9 @@ class Unpickler(pickle.Unpickler):
 
             # Initialize the unpickler with the original file
             super().__init__(
-                file, 
-                fix_imports=fix_imports, 
-                encoding=encoding, 
-                errors=errors, 
-                buffers=buffers
+                file,
+                fix_imports=fix_imports,
+                encoding=encoding,
+                errors=errors,
+                buffers=buffers,
             )

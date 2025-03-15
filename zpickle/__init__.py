@@ -21,24 +21,39 @@ from .config import configure, get_config, ZpickleConfig
 # Make this module a drop-in replacement for pickle
 __all__ = [
     # Core functions
-    'dumps', 'loads', 'dump', 'load',
+    "dumps",
+    "loads",
+    "dump",
+    "load",
     # Classes
-    'Pickler', 'Unpickler',
+    "Pickler",
+    "Unpickler",
     # Configuration
-    'configure', 'get_config', 'ZpickleConfig',
+    "configure",
+    "get_config",
+    "ZpickleConfig",
     # Version
-    '__version__',
+    "__version__",
 ]
 
 # Re-export pickle's extended API for complete compatibility
 try:
     from pickle import (
-        PickleError, PicklingError, UnpicklingError, 
-        HIGHEST_PROTOCOL, DEFAULT_PROTOCOL
+        PickleError,
+        PicklingError,
+        UnpicklingError,
+        HIGHEST_PROTOCOL,
+        DEFAULT_PROTOCOL,
     )
-    __all__.extend([
-        'PickleError', 'PicklingError', 'UnpicklingError',
-        'HIGHEST_PROTOCOL', 'DEFAULT_PROTOCOL'
-    ])
+
+    __all__.extend(
+        [
+            "PickleError",
+            "PicklingError",
+            "UnpicklingError",
+            "HIGHEST_PROTOCOL",
+            "DEFAULT_PROTOCOL",
+        ]
+    )
 except ImportError:
     pass

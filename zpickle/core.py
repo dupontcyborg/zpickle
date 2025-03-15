@@ -12,20 +12,20 @@ from typing import Any, BinaryIO, Optional, Union
 from compress_utils import compress, decompress
 
 from .config import get_config
-from .format import (
-    HEADER_SIZE, encode_header, decode_header,
-    is_zpickle_data
-)
+from .format import HEADER_SIZE, encode_header, decode_header, is_zpickle_data
 
-def dumps(obj: Any, 
-          protocol: Optional[int] = None, 
-          *, 
-          fix_imports: bool = True,
-          buffer_callback: Optional[Any] = None,
-          algorithm: Optional[str] = None,
-          level: Optional[int] = None) -> bytes:
+
+def dumps(
+    obj: Any,
+    protocol: Optional[int] = None,
+    *,
+    fix_imports: bool = True,
+    buffer_callback: Optional[Any] = None,
+    algorithm: Optional[str] = None,
+    level: Optional[int] = None,
+) -> bytes:
     """Pickle and compress an object to a bytes object.
-    
+
     Args:
         obj: The Python object to pickle and compress
         protocol: The pickle protocol to use
@@ -33,10 +33,10 @@ def dumps(obj: Any,
         buffer_callback: Callback for handling buffer objects
         algorithm: Compression algorithm to use (overrides global config)
         level: Compression level to use (overrides global config)
-        
+
     Returns:
         bytes: The compressed pickled object with zpickle header
-        
+
     Example:
         >>> import zpickle
         >>> data = {"example": "data"}
@@ -44,9 +44,7 @@ def dumps(obj: Any,
     """
     # Use pickle to serialize the object
     pickled_data = pickle.dumps(
-        obj, protocol, 
-        fix_imports=fix_imports, 
-        buffer_callback=buffer_callback
+        obj, protocol, fix_imports=fix_imports, buffer_callback=buffer_callback
     )
 
     # Get compression settings
@@ -55,9 +53,9 @@ def dumps(obj: Any,
     lvl = level or config.level
 
     # Skip compression for very small objects
-    if len(pickled_data) < config.min_size or alg == 'none':
+    if len(pickled_data) < config.min_size or alg == "none":
         # Still add header for consistency
-        header = encode_header('none', 0)
+        header = encode_header("none", 0)
         return header + pickled_data
 
     # Compress the pickle data
@@ -67,15 +65,18 @@ def dumps(obj: Any,
     header = encode_header(alg, lvl)
     return header + compressed_data
 
-def loads(data: bytes, 
-          *, 
-          fix_imports: bool = True, 
-          encoding: str = 'ASCII', 
-          errors: str = 'strict',
-          buffers: Optional[Any] = None,
-          strict: bool = True) -> Any:
+
+def loads(
+    data: bytes,
+    *,
+    fix_imports: bool = True,
+    encoding: str = "ASCII",
+    errors: str = "strict",
+    buffers: Optional[Any] = None,
+    strict: bool = True,
+) -> Any:
     """Decompress and unpickle an object from a bytes object.
-    
+
     Args:
         data: The compressed pickled bytes to load
         fix_imports: Fix imports for Python 2 compatibility
@@ -84,10 +85,10 @@ def loads(data: bytes,
         buffers: Optional iterables of buffer-enabled objects
         strict: If True, raises errors for unsupported versions/algorithms.
                If False, attempts to load the data with warnings.
-        
+
     Returns:
         Any: The unpickled Python object
-        
+
     Example:
         >>> import zpickle
         >>> data = zpickle.dumps({"example": "data"})
@@ -109,7 +110,7 @@ def loads(data: bytes,
             compressed_data = data[HEADER_SIZE:]
 
             # Decompress based on algorithm
-            if algorithm == 'none':
+            if algorithm == "none":
                 pickled_data = compressed_data
             else:
                 # Decompress the data
@@ -122,7 +123,7 @@ def loads(data: bytes,
             # In non-strict mode, fall back to treating as regular pickle
             warnings.warn(
                 f"Error processing zpickle data, falling back to regular pickle: {e}",
-                RuntimeWarning
+                RuntimeWarning,
             )
             pickled_data = data
     else:
@@ -131,23 +132,26 @@ def loads(data: bytes,
 
     # Unpickle and return
     return pickle.loads(
-        pickled_data, 
-        fix_imports=fix_imports, 
-        encoding=encoding, 
+        pickled_data,
+        fix_imports=fix_imports,
+        encoding=encoding,
         errors=errors,
-        buffers=buffers
+        buffers=buffers,
     )
 
-def dump(obj: Any, 
-         file: BinaryIO, 
-         protocol: Optional[int] = None, 
-         *, 
-         fix_imports: bool = True,
-         buffer_callback: Optional[Any] = None,
-         algorithm: Optional[str] = None,
-         level: Optional[int] = None) -> None:
+
+def dump(
+    obj: Any,
+    file: BinaryIO,
+    protocol: Optional[int] = None,
+    *,
+    fix_imports: bool = True,
+    buffer_callback: Optional[Any] = None,
+    algorithm: Optional[str] = None,
+    level: Optional[int] = None,
+) -> None:
     """Pickle and compress an object, writing the result to a file.
-    
+
     Args:
         obj: The Python object to pickle and compress
         file: A file-like object with a write method
@@ -156,7 +160,7 @@ def dump(obj: Any,
         buffer_callback: Callback for handling buffer objects
         algorithm: Compression algorithm to use (overrides global config)
         level: Compression level to use (overrides global config)
-        
+
     Example:
         >>> import zpickle
         >>> data = {"example": "data"}
@@ -164,23 +168,27 @@ def dump(obj: Any,
         ...     zpickle.dump(data, f)
     """
     data = dumps(
-        obj, protocol, 
-        fix_imports=fix_imports, 
+        obj,
+        protocol,
+        fix_imports=fix_imports,
         buffer_callback=buffer_callback,
         algorithm=algorithm,
-        level=level
+        level=level,
     )
     file.write(data)
 
-def load(file: BinaryIO, 
-         *, 
-         fix_imports: bool = True, 
-         encoding: str = 'ASCII', 
-         errors: str = 'strict',
-         buffers: Optional[Any] = None,
-         strict: bool = True) -> Any:
+
+def load(
+    file: BinaryIO,
+    *,
+    fix_imports: bool = True,
+    encoding: str = "ASCII",
+    errors: str = "strict",
+    buffers: Optional[Any] = None,
+    strict: bool = True,
+) -> Any:
     """Decompress and unpickle an object from a file.
-    
+
     Args:
         file: A file-like object with read and seek methods
         fix_imports: Fix imports for Python 2 compatibility
@@ -189,10 +197,10 @@ def load(file: BinaryIO,
         buffers: Optional iterables of buffer-enabled objects
         strict: If True, raises errors for unsupported versions/algorithms.
                If False, attempts to load the data with warnings.
-        
+
     Returns:
         Any: The unpickled Python object
-        
+
     Example:
         >>> import zpickle
         >>> with open('data.zpkl', 'rb') as f:
@@ -210,7 +218,7 @@ def load(file: BinaryIO,
             compressed_data = file.read()
 
             # Decompress based on algorithm
-            if algorithm == 'none':
+            if algorithm == "none":
                 pickled_data = compressed_data
             else:
                 # Decompress the data
@@ -223,7 +231,7 @@ def load(file: BinaryIO,
             # In non-strict mode, fall back to treating as regular pickle
             warnings.warn(
                 f"Error processing zpickle data, falling back to regular pickle: {e}",
-                RuntimeWarning
+                RuntimeWarning,
             )
             file.seek(0)
             pickled_data = file.read()
@@ -238,5 +246,5 @@ def load(file: BinaryIO,
         fix_imports=fix_imports,
         encoding=encoding,
         errors=errors,
-        buffers=buffers
+        buffers=buffers,
     )
