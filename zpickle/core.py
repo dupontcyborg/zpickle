@@ -95,6 +95,10 @@ def loads(data: bytes,
         >>> obj
         {'example': 'data'}
     """
+    # Check that data is a bytes-like object
+    if not isinstance(data, (bytes, bytearray)):
+        raise TypeError(f"A bytes-like object is required, not '{type(data).__name__}'")
+
     # Check if this is zpickle data
     if is_zpickle_data(data):
         try:
