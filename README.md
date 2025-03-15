@@ -1,7 +1,7 @@
 # zpickle
 
 <p align="center">
-  <img src="https://img.shields.io/github/workflow/status/dupontcyborg/zpickle/test_and_package_wheel" alt="Build Status"/>
+  <img src="https://img.shields.io/github/actions/workflow/status/dupontcyborg/zpickle/test_and_package_wheel.yml" alt="Build Status"/>
   <img src="https://img.shields.io/pypi/v/zpickle" alt="PyPI Version"/>
   <img src="https://img.shields.io/github/v/release/dupontcyborg/zpickle" alt="GitHub Release"/>
 </p>
