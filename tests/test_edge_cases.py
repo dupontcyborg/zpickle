@@ -9,7 +9,7 @@ import struct
 import pytest
 
 import zpickle
-from zpickle.format import ZPICKLE_MAGIC, HEADER_SIZE
+from zpickle.format import HEADER_SIZE, ZPICKLE_MAGIC
 
 
 def test_small_objects():

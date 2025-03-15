@@ -12,17 +12,17 @@ from zpickle.exceptions import (
     UnsupportedVersionError,
 )
 from zpickle.format import (
-    ZPICKLE_MAGIC,
-    PROTOCOL_VERSION,
+    ALGORITHM_IDS,
+    ALGORITHMS,
     HEADER_FMT,
     HEADER_SIZE,
-    ALGORITHMS,
-    ALGORITHM_IDS,
+    PROTOCOL_VERSION,
     RESERVED_BYTE,
+    ZPICKLE_MAGIC,
+    decode_header,
+    encode_header,
     is_zpickle_data,
     validate_algorithm,
-    encode_header,
-    decode_header,
 )
 
 

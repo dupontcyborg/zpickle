@@ -12,7 +12,7 @@ from typing import Any, BinaryIO, Optional
 from compress_utils import compress, decompress
 
 from .config import get_config
-from .format import HEADER_SIZE, encode_header, decode_header, is_zpickle_data
+from .format import HEADER_SIZE, decode_header, encode_header, is_zpickle_data
 
 
 class Pickler(pickle.Pickler):

@@ -13,10 +13,11 @@ except ImportError:
     # Fall back to an unknown version
     __version__ = "0.0.0+unknown"
 
-# Import core functionality
-from .core import dumps, loads, dump, load
 from .compat import Pickler, Unpickler
-from .config import configure, get_config, ZpickleConfig
+from .config import ZpickleConfig, configure, get_config
+
+# Import core functionality
+from .core import dump, dumps, load, loads
 
 # Make this module a drop-in replacement for pickle
 __all__ = [
@@ -39,11 +40,11 @@ __all__ = [
 # Re-export pickle's extended API for complete compatibility
 try:
     from pickle import (
+        DEFAULT_PROTOCOL,
+        HIGHEST_PROTOCOL,
         PickleError,
         PicklingError,
         UnpicklingError,
-        HIGHEST_PROTOCOL,
-        DEFAULT_PROTOCOL,
     )
 
     __all__.extend(

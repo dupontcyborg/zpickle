@@ -6,10 +6,10 @@ import pytest
 
 import zpickle
 from zpickle.config import (
-    ZpickleConfig,
     DEFAULT_ALGORITHM,
     DEFAULT_LEVEL,
     MIN_SIZE_FOR_COMPRESSION,
+    ZpickleConfig,
 )
 
 
