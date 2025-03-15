@@ -15,6 +15,7 @@ except ImportError:
 
 from .compat import Pickler, Unpickler
 from .config import ZpickleConfig, configure, get_config
+
 # Import core functionality
 from .core import dump, dumps, load, loads
 
@@ -38,8 +39,13 @@ __all__ = [
 
 # Re-export pickle's extended API for complete compatibility
 try:
-    from pickle import (DEFAULT_PROTOCOL, HIGHEST_PROTOCOL, PickleError,
-                        PicklingError, UnpicklingError)
+    from pickle import (
+        DEFAULT_PROTOCOL,
+        HIGHEST_PROTOCOL,
+        PickleError,
+        PicklingError,
+        UnpicklingError,
+    )
 
     __all__.extend(
         [

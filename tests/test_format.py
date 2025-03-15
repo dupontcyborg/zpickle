@@ -6,12 +6,24 @@ import struct
 
 import pytest
 
-from zpickle.exceptions import (InvalidFormatError, UnsupportedAlgorithmError,
-                                UnsupportedVersionError)
-from zpickle.format import (ALGORITHM_IDS, ALGORITHMS, HEADER_FMT, HEADER_SIZE,
-                            PROTOCOL_VERSION, RESERVED_BYTE, ZPICKLE_MAGIC,
-                            decode_header, encode_header, is_zpickle_data,
-                            validate_algorithm)
+from zpickle.exceptions import (
+    InvalidFormatError,
+    UnsupportedAlgorithmError,
+    UnsupportedVersionError,
+)
+from zpickle.format import (
+    ALGORITHM_IDS,
+    ALGORITHMS,
+    HEADER_FMT,
+    HEADER_SIZE,
+    PROTOCOL_VERSION,
+    RESERVED_BYTE,
+    ZPICKLE_MAGIC,
+    decode_header,
+    encode_header,
+    is_zpickle_data,
+    validate_algorithm,
+)
 
 
 def test_header_constants():

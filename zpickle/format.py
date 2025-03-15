@@ -9,8 +9,11 @@ import struct
 import warnings
 from typing import Tuple
 
-from .exceptions import (InvalidFormatError, UnsupportedAlgorithmError,
-                         UnsupportedVersionError)
+from .exceptions import (
+    InvalidFormatError,
+    UnsupportedAlgorithmError,
+    UnsupportedVersionError,
+)
 
 # Format constants
 ZPICKLE_MAGIC = b"ZPKL"

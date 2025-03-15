@@ -41,7 +41,7 @@ class Pickler(pickle.Pickler):
         fix_imports=True,
         buffer_callback=None,
         algorithm=None,
-        level=None
+        level=None,
     ):
         self.file = file
         config = get_config()

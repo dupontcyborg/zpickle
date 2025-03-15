@@ -5,8 +5,12 @@ Tests for the configuration functionality.
 import pytest
 
 import zpickle
-from zpickle.config import (DEFAULT_ALGORITHM, DEFAULT_LEVEL,
-                            MIN_SIZE_FOR_COMPRESSION, ZpickleConfig)
+from zpickle.config import (
+    DEFAULT_ALGORITHM,
+    DEFAULT_LEVEL,
+    MIN_SIZE_FOR_COMPRESSION,
+    ZpickleConfig,
+)
 
 
 @pytest.fixture(autouse=True)
