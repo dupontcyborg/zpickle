@@ -63,11 +63,22 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: "3.13"
+          cache: 'pip'
+
+      - name: Set Version from Tag for Wheels
+        if: github.ref_type == 'tag'
+        shell: bash
+        run: |
+          VERSION=${GITHUB_REF_NAME#v}
+          echo "Setting exact version $VERSION for tag build"
+          echo "SETUPTOOLS_SCM_PRETEND_VERSION=$VERSION" >> $GITHUB_ENV
 
       - name: Install build dependencies
         run: |
