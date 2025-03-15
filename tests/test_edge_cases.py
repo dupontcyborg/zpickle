@@ -14,8 +14,6 @@ from zpickle.format import HEADER_SIZE, ZPICKLE_MAGIC
 
 def test_small_objects():
     """Test behavior with objects smaller than compression threshold."""
-    # Get current min_size threshold
-    min_size = zpickle.get_config().min_size
 
     # Make string exactly 10 bytes - well below any reasonable min_size
     small_data = "x" * 10
@@ -120,7 +118,7 @@ def test_various_data_types():
 
         # Verify
         assert restored == data
-        assert type(restored) == type(data)
+        assert isinstance(restored, type(data))
 
 
 def test_binary_data():

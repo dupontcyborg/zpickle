@@ -9,11 +9,8 @@ import struct
 import warnings
 from typing import Tuple
 
-from .exceptions import (
-    InvalidFormatError,
-    UnsupportedAlgorithmError,
-    UnsupportedVersionError,
-)
+from .exceptions import (InvalidFormatError, UnsupportedAlgorithmError,
+                         UnsupportedVersionError)
 
 # Format constants
 ZPICKLE_MAGIC = b"ZPKL"
@@ -74,7 +71,8 @@ def encode_header(algorithm: str, level: int, reserved: int = RESERVED_BYTE) -> 
     Args:
         algorithm (str): The compression algorithm name
         level (int): The compression level
-        reserved (int, optional): Reserved byte for future extensions. Defaults to RESERVED_BYTE.
+        reserved (int, optional): Reserved byte for future extensions.
+            Defaults to RESERVED_BYTE.
 
     Returns:
         bytes: The encoded header

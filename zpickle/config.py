@@ -35,8 +35,8 @@ class ZpickleConfig:
 
     def __repr__(self) -> str:
         return (
-            f"ZpickleConfig(algorithm='{self.algorithm}',"
-            + f"level={self.level}, min_size={self.min_size})"
+            f"ZpickleConfig(algorithm='{self.algorithm}', "
+            f"level={self.level}, min_size={self.min_size})"
         )
 
 
