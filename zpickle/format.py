@@ -122,6 +122,7 @@ def decode_header(data: bytes, strict: bool = True) -> Tuple[int, str, int, int]
                 f"This file may have been created with a newer version of zpickle."
             )
         else:
+            warnings.warn(f"Unrecognized algorithm ID: {alg_id}.", RuntimeWarning)
             # Fall back to zstd if not in strict mode
             algorithm = 'zstd'
 
