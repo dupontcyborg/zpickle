@@ -6,6 +6,7 @@ functions (dumps, loads, dump, load) with compression support.
 """
 
 import pickle
+import warnings
 from typing import Any, BinaryIO, Optional, Union
 
 from compress_utils import compress, decompress
@@ -71,7 +72,8 @@ def loads(data: bytes,
           fix_imports: bool = True, 
           encoding: str = 'ASCII', 
           errors: str = 'strict',
-          buffers: Optional[Any] = None) -> Any:
+          buffers: Optional[Any] = None,
+          strict: bool = True) -> Any:
     """Decompress and unpickle an object from a bytes object.
     
     Args:
@@ -80,6 +82,8 @@ def loads(data: bytes,
         encoding: Encoding for 8-bit string instances unpickled from str
         errors: Error handling scheme for decode errors
         buffers: Optional iterables of buffer-enabled objects
+        strict: If True, raises errors for unsupported versions/algorithms.
+               If False, attempts to load the data with warnings.
         
     Returns:
         Any: The unpickled Python object
@@ -93,18 +97,30 @@ def loads(data: bytes,
     """
     # Check if this is zpickle data
     if is_zpickle_data(data):
-        # Extract header info
-        _, algorithm, _, _ = decode_header(data)
+        try:
+            # Extract header info
+            _, algorithm, _, _ = decode_header(data, strict)
 
-        # Get the compressed data (after header)
-        compressed_data = data[HEADER_SIZE:]
+            # Get the compressed data (after header)
+            compressed_data = data[HEADER_SIZE:]
 
-        # If algorithm is 'none', data wasn't compressed
-        if algorithm == 'none':
-            pickled_data = compressed_data
-        else:
-            # Decompress the data
-            pickled_data = decompress(compressed_data, algorithm)
+            # Decompress based on algorithm
+            if algorithm == 'none':
+                pickled_data = compressed_data
+            else:
+                # Decompress the data
+                pickled_data = decompress(compressed_data, algorithm)
+
+        except Exception as e:
+            if strict:
+                raise
+
+            # In non-strict mode, fall back to treating as regular pickle
+            warnings.warn(
+                f"Error processing zpickle data, falling back to regular pickle: {e}",
+                RuntimeWarning
+            )
+            pickled_data = data
     else:
         # Fallback to regular pickle data
         pickled_data = data
@@ -157,7 +173,8 @@ def load(file: BinaryIO,
          fix_imports: bool = True, 
          encoding: str = 'ASCII', 
          errors: str = 'strict',
-         buffers: Optional[Any] = None) -> Any:
+         buffers: Optional[Any] = None,
+         strict: bool = True) -> Any:
     """Decompress and unpickle an object from a file.
     
     Args:
@@ -166,6 +183,8 @@ def load(file: BinaryIO,
         encoding: Encoding for 8-bit string instances unpickled from str
         errors: Error handling scheme for decode errors
         buffers: Optional iterables of buffer-enabled objects
+        strict: If True, raises errors for unsupported versions/algorithms.
+               If False, attempts to load the data with warnings.
         
     Returns:
         Any: The unpickled Python object
@@ -178,19 +197,32 @@ def load(file: BinaryIO,
     # Read the header first to determine format
     header = file.read(HEADER_SIZE)
 
-    if header[:4] == b'ZPKL':
-        # This is zpickle data, get algorithm info
-        _, algorithm, _, _ = decode_header(header)
+    if is_zpickle_data(header):
+        try:
+            # This is zpickle data, get algorithm info
+            _, algorithm, _, _ = decode_header(header, strict)
 
-        # Read the rest of the file
-        compressed_data = file.read()
+            # Read the rest of the file
+            compressed_data = file.read()
 
-        # If algorithm is 'none', data wasn't compressed
-        if algorithm == 'none':
-            pickled_data = compressed_data
-        else:
-            # Decompress the data
-            pickled_data = decompress(compressed_data, algorithm)
+            # Decompress based on algorithm
+            if algorithm == 'none':
+                pickled_data = compressed_data
+            else:
+                # Decompress the data
+                pickled_data = decompress(compressed_data, algorithm)
+
+        except Exception as e:
+            if strict:
+                raise
+
+            # In non-strict mode, fall back to treating as regular pickle
+            warnings.warn(
+                f"Error processing zpickle data, falling back to regular pickle: {e}",
+                RuntimeWarning
+            )
+            file.seek(0)
+            pickled_data = file.read()
     else:
         # Fallback to regular pickle data, reset file position and read all
         file.seek(0)
