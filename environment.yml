@@ -1,0 +1,19 @@
+name: zpickle-dev
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.12
+  - pip
+  - pip:
+    - wheel
+    - build
+    - setuptools
+    - pytest
+    - pytest-cov
+    - black
+    - flake8
+    - isort
+    - mypy
+    - pre-commit
+    - compress-utils
