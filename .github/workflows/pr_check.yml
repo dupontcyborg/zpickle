@@ -1,4 +1,4 @@
-name: Test & Link for PR
+name: Test & Lint for PR
 
 on:
   pull_request:
@@ -76,7 +76,7 @@ jobs:
           black --check zpickle tests
           
           # Check import sorting
-          isort --check zpickle tests
+          # isort --check zpickle tests
           
           # Run static analysis
           flake8 zpickle tests

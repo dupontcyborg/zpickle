@@ -19,7 +19,6 @@ setup(
     long_description=long_description,
     long_description_content_type="text/markdown",
     author="Nicolas Dupont",
-    author_email="your.email@example.com",
     url="https://github.com/dupontcyborg/zpickle",
     project_urls={
         "Bug Tracker": "https://github.com/dupontcyborg/zpickle/issues",
