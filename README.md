@@ -80,11 +80,11 @@ compressed = zpickle.dumps(data, algorithm='zstd', level=6)
 
 Compression ratios versus standard `pickle` (higher is better):
 
-<img src="benchmarks/results/compression_ratio.png" alt="Bar graph showing data compression ratios versus pickle">
+<img src="https://raw.githubusercontent.com/dupontcyborg/zpickle/main/benchmarks/results/compression_ratio.png" alt="Bar graph showing data compression ratios versus pickle">
 
 Serialization speed (MB/s, higher is better):
 
-<img src="benchmarks/results/compression_speed.png" alt="Bar graph showing data compression speeds versus pickle">
+<img src="https://raw.githubusercontent.com/dupontcyborg/zpickle/main/benchmarks/results/compression_speed.png" alt="Bar graph showing data compression speeds versus pickle">
 
 *Note: Performance varies by data characteristics. Run benchmarks on your specific data for accurate results.*
 
@@ -100,7 +100,7 @@ python -m benchmarks.benchmark
 
 1. Objects are first serialized using standard pickle
 2. The pickle data is compressed using the selected algorithm
-3. A small header (7 bytes) is added to identify the format and algorithm
+3. A small header (8 bytes) is added to identify the format and algorithm
 4. When deserializing, `zpickle` auto-detects the format and decompresses if needed
 
 ## API Reference
