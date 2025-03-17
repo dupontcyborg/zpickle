@@ -53,43 +53,44 @@ ALGORITHMS = [
 ]
 
 # Dataset definitions - each has a name, type, and source
+# Dataset definitions - each has a name, type, and source
 DATASETS = [
+    # {
+    #     "name": "Text", 
+    #     "type": "text",
+    #     "description": "Sample of book texts",
+    #     "url": "https://raw.githubusercontent.com/karpathy/char-rnn/master/data/tinyshakespeare/input.txt",
+    #     "file": "shakespeare.txt"
+    # },
     {
-        "name": "JSON Weather",
-        "type": "json",
-        "description": "Weather data in JSON format",
-        "url": "https://raw.githubusercontent.com/michaelx/climate/refs/heads/master/climate.json",
-        "file": "weather.json"
+        "name": "Complex Objects",
+        "type": "python",
+        "description": "Complex Python object structures",
+        "generated": True,
+        "generator": "generate_complex_objects"
     },
     {
-        "name": "Books Corpus", 
-        "type": "text",
-        "description": "Sample of book texts",
-        "url": "https://raw.githubusercontent.com/karpathy/char-rnn/master/data/tinyshakespeare/input.txt",
-        "file": "shakespeare.txt"
+        "name": "NumPy Arrays",
+        "type": "numpy",
+        "description": "Various NumPy array types",
+        "generated": True,
+        "generator": "generate_numpy_arrays"
     },
     {
-        "name": "Cities JSON",
+        "name": "JSON",
         "type": "json",
         "description": "City data in JSON format",
         "url": "https://github.com/lutangar/cities.json/raw/master/cities.json",
         "file": "cities.json"
     },
-    {
-        "name": "JSON Users",
-        "type": "json",
-        "description": "User database in JSON format", 
-        "url": "https://jsonplaceholder.typicode.com/users",
-        "file": "users.json"
-    },
-    {
-        "name": "Tabular Data",
-        "type": "numpy",
-        "description": "Structured numerical data",
-        "generated": True
-    },
+    # {
+    #     "name": "Tabular Data",
+    #     "type": "numpy",
+    #     "description": "Structured numerical data",
+    #     "generated": True,
+    #     "generator": "generate_tabular_data"
+    # },
 ]
-
 
 @dataclass
 class BenchmarkResult:
@@ -197,6 +198,157 @@ def generate_tabular_data(size_mb: float = 5.0) -> np.ndarray:
     return data
 
 
+class Person:
+    def __init__(self, name, age, friends=None):
+        self.name = name
+        self.age = age
+        self.friends = friends or []
+        self._private = "private data"
+        
+    def greet(self):
+        return f"Hello, my name is {self.name}"
+        
+    def add_friend(self, friend):
+        self.friends.append(friend)
+        
+    def __eq__(self, other):
+        if not isinstance(other, Person):
+            return False
+        return (self.name == other.name and 
+                self.age == other.age and 
+                self.friends == other.friends)
+
+def generate_complex_objects(size_mb: float = 5.0) -> List:
+    """Generate complex Python object structures."""
+    print(f"Generating complex Python objects (≈{size_mb} MB)...")
+    
+    # Create objects to reach approximately the target size
+    result = []
+    current_size = 0
+    target_bytes = int(size_mb * 1024 * 1024)
+    
+    # Create various complex structures
+    while current_size < target_bytes:
+        # Add various types of complex objects
+        
+        # Nested dictionaries
+        nested_dict = {}
+        for i in range(50):
+            nested_dict[f"key_{i}"] = {
+                "name": f"value_{i}",
+                "data": [j for j in range(i)],
+                "nested": {
+                    "a": i * 10,
+                    "b": [f"item_{j}" for j in range(5)],
+                    "c": {j: j**2 for j in range(10)}
+                }
+            }
+        result.append(nested_dict)
+        
+        # Custom objects
+        people = []
+        for i in range(20):
+            person = Person(f"Person_{i}", 20 + i % 40)
+            # Add some friends to create a network
+            for j in range(i % 5):
+                friend = Person(f"Friend_{i}_{j}", 20 + j % 30)
+                person.add_friend(friend)
+            people.append(person)
+        
+        # Create circular references for some people
+        for i in range(len(people) - 1):
+            people[i].add_friend(people[i+1])
+        # Add a circular reference
+        if people:
+            people[-1].add_friend(people[0])
+            
+        result.append(people)
+        
+        # Recursive structures
+        recursive_list = [1, 2, 3]
+        recursive_list.append(recursive_list)  # Self-reference
+        result.append(recursive_list)
+        
+        # Mixed type collections
+        for i in range(10):
+            mixed = {
+                "tuple": tuple(range(100)),
+                "set": {f"item_{j}" for j in range(50)},
+                "bytes": os.urandom(1000),
+                "float": 3.14159265358979323846,
+                "complex": complex(1, 2),
+                "bool": i % 2 == 0,
+                "none": None,
+                "frozenset": frozenset(["a", "b", "c"]),
+                "bytes_array": bytearray(range(255))
+            }
+            result.append(mixed)
+        
+        # Check current size
+        current_size = len(pickle.dumps(result))
+    
+    return result
+
+def generate_numpy_arrays(size_mb: float = 5.0) -> Dict[str, np.ndarray]:
+    """Generate various NumPy array types."""
+    if not HAS_NUMPY:
+        return None
+    
+    print(f"Generating NumPy arrays (≈{size_mb} MB)...")
+    
+    # Calculate total size to target
+    target_bytes = int(size_mb * 1024 * 1024)
+    
+    # Create a collection of different array types
+    arrays = {}
+    
+    # Basic arrays with different dtypes
+    arrays["float64"] = np.linspace(0, 1, 10000, dtype=np.float64)
+    arrays["float32"] = np.linspace(0, 1, 10000, dtype=np.float32)
+    arrays["int64"] = np.arange(10000, dtype=np.int64)
+    arrays["int32"] = np.arange(10000, dtype=np.int32)
+    arrays["complex"] = np.exp(1j * np.linspace(0, 2*np.pi, 5000))
+    
+    # 2D arrays
+    n = 1000  # Size that gives us ~8MB for float64
+    arrays["matrix"] = np.zeros((n, n // 10), dtype=np.float64)
+    
+    # Fill with patterns
+    for i in range(arrays["matrix"].shape[0]):
+        if i % 3 == 0:
+            # Sin wave
+            arrays["matrix"][i, :] = np.sin(np.linspace(0, 10, arrays["matrix"].shape[1]))
+        elif i % 3 == 1:
+            # Linear gradient
+            arrays["matrix"][i, :] = np.linspace(0, 1, arrays["matrix"].shape[1])
+        else:
+            # Constant value
+            arrays["matrix"][i, :] = i % 5
+    
+    # 3D array (smaller due to size)
+    arrays["tensor"] = np.zeros((50, 50, 50), dtype=np.float32)
+    
+    # Fill with a pattern
+    for i in range(arrays["tensor"].shape[0]):
+        arrays["tensor"][i, :, :] = i % 10
+    
+    # Structured array
+    dt = np.dtype([('name', 'S10'), ('age', 'i4'), ('weight', 'f4')])
+    arrays["structured"] = np.zeros(1000, dtype=dt)
+    
+    # Fill with data
+    for i in range(len(arrays["structured"])):
+        arrays["structured"][i] = (f"Name{i}".encode('ascii'), 20 + i % 50, 150 + i % 50)
+    
+    # Masked array
+    data = np.arange(1000, dtype=float)
+    mask = np.zeros(1000, dtype=bool)
+    mask[::10] = True  # Mask every 10th element
+    arrays["masked"] = np.ma.array(data, mask=mask)
+    
+    return arrays
+
+
 def load_dataset(dataset_config: Dict[str, Any], size_mb: Optional[float] = None) -> Any:
     """Load or generate a dataset based on its configuration."""
     name = dataset_config["name"]
@@ -210,6 +362,12 @@ def load_dataset(dataset_config: Dict[str, Any], size_mb: Optional[float] = None
         elif name == "Tabular Data" and HAS_NUMPY:
             print(f"Generating tabular data dataset (≈{size_mb or 5.0} MB)...")
             return generate_tabular_data(size_mb or 5.0)
+        elif name == "Complex Objects":
+            print(f"Generating complex objects dataset (≈{size_mb or 5.0} MB)...")
+            return generate_complex_objects(size_mb or 5.0)
+        elif name == "NumPy Arrays" and HAS_NUMPY:
+            print(f"Generating NumPy arrays dataset (≈{size_mb or 5.0} MB)...")
+            return generate_numpy_arrays(size_mb or 5.0)
         else:
             print(f"Unknown generated dataset: {name}")
             return None
