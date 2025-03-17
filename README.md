@@ -2,18 +2,18 @@
 
 <p align="center">
   <img src="https://img.shields.io/github/actions/workflow/status/dupontcyborg/zpickle/test_and_package_wheel.yml" alt="Build Status"/>
-  <img src="https://img.shields.io/pypi/v/zpickle" alt="PyPI Version"/>
   <img src="https://img.shields.io/github/v/release/dupontcyborg/zpickle" alt="GitHub Release"/>
+  <img src="https://img.shields.io/github/license/dupontcyborg/zpickle" alt="License"/>
 </p>
 <p align="center">
   <img src="https://img.shields.io/pypi/pyversions/zpickle" alt="Python Versions"/>
-  <img src="https://img.shields.io/github/license/dupontcyborg/zpickle" alt="License"/>
-  <img src="https://static.pepy.tech/badge/zpickle" alt="PyPI Downloads">
+  <img src="https://img.shields.io/pypi/v/zpickle" alt="PyPI Version"/>
+  <!-- <img src="https://static.pepy.tech/badge/zpickle" alt="PyPI Downloads"> -->
 </p>
 
 **Transparent, drop-in compression for Python's pickle — smaller files, same API.**
 
-`zpickle` adds high-performance compression to your serialized Python objects using multiple state-of-the-art algorithms without changing how you work with pickle.
+[`zpickle`](https://pypi.org/project/zpickle/) adds high-performance compression to your serialized Python objects using multiple state-of-the-art algorithms without changing how you work with pickle.
 
 ```python
 # Replace this:
