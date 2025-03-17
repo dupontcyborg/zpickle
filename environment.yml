@@ -17,3 +17,7 @@ dependencies:
     - mypy
     - pre-commit
     - compress-utils
+    - pandas
+    - numpy
+    - matplotlib
+    - seaborn
