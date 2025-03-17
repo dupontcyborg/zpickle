@@ -78,25 +78,21 @@ compressed = zpickle.dumps(data, algorithm='zstd', level=6)
 
 ## Performance
 
-Compression ratios versus standard pickle (higher is better):
+Compression ratios versus standard `pickle` (higher is better):
 
-| Data Type | zstd (default) | brotli | zlib | lzma |
-|-----------|----------------|--------|------|------|
-| Dict/List | _TBD_ | _TBD_ | _TBD_ | _TBD_ |
-| NumPy     | _TBD_ | _TBD_ | _TBD_ | _TBD_ |
-| Text      | _TBD_ | _TBD_ | _TBD_ | _TBD_ |
-| Binary    | _TBD_ | _TBD_ | _TBD_ | _TBD_ |
+<img src="benchmarks/results/compression_ratio.png" alt="Bar graph showing data compression ratios versus pickle">
 
-Compression speed (MB/s, higher is better):
+Serialization speed (MB/s, higher is better):
 
-| Algorithm  | Level 1 | Level 3 (default) | Level 9 |
-|------------|---------|-------------------|---------|
-| `zstd`       | _TBD_ | _TBD_ | _TBD_ |
-| `brotli`     | _TBD_ | _TBD_ | _TBD_ |
-| `zlib`       | _TBD_ | _TBD_ | _TBD_ |
-| `lzma`       | _TBD_ | _TBD_ | _TBD_ |
+<img src="benchmarks/results/compression_speed.png" alt="Bar graph showing data compression speeds versus pickle">
 
 *Note: Performance varies by data characteristics. Run benchmarks on your specific data for accurate results.*
+
+To run your own benchmarks, you can use:
+
+```bash
+python -m benchmarks.benchmark
+```
 
 ## How It Works
 
