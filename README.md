@@ -2,18 +2,18 @@
 
 <p align="center">
   <img src="https://img.shields.io/github/actions/workflow/status/dupontcyborg/zpickle/test_and_package_wheel.yml" alt="Build Status"/>
-  <img src="https://img.shields.io/pypi/v/zpickle" alt="PyPI Version"/>
   <img src="https://img.shields.io/github/v/release/dupontcyborg/zpickle" alt="GitHub Release"/>
+  <img src="https://img.shields.io/github/license/dupontcyborg/zpickle" alt="License"/>
 </p>
 <p align="center">
   <img src="https://img.shields.io/pypi/pyversions/zpickle" alt="Python Versions"/>
-  <img src="https://img.shields.io/github/license/dupontcyborg/zpickle" alt="License"/>
-  <img src="https://static.pepy.tech/badge/zpickle" alt="PyPI Downloads">
+  <img src="https://img.shields.io/pypi/v/zpickle" alt="PyPI Version"/>
+  <!-- <img src="https://static.pepy.tech/badge/zpickle" alt="PyPI Downloads"> -->
 </p>
 
 **Transparent, drop-in compression for Python's pickle — smaller files, same API.**
 
-`zpickle` adds high-performance compression to your serialized Python objects using multiple state-of-the-art algorithms without changing how you work with pickle.
+[`zpickle`](https://pypi.org/project/zpickle/) adds high-performance compression to your serialized Python objects using multiple state-of-the-art algorithms without changing how you work with pickle.
 
 ```python
 # Replace this:
@@ -78,25 +78,21 @@ compressed = zpickle.dumps(data, algorithm='zstd', level=6)
 
 ## Performance
 
-Compression ratios versus standard pickle (higher is better):
+Compression ratios versus standard `pickle` (higher is better):
 
-| Data Type | zstd (default) | brotli | zlib | lzma |
-|-----------|----------------|--------|------|------|
-| Dict/List | _TBD_ | _TBD_ | _TBD_ | _TBD_ |
-| NumPy     | _TBD_ | _TBD_ | _TBD_ | _TBD_ |
-| Text      | _TBD_ | _TBD_ | _TBD_ | _TBD_ |
-| Binary    | _TBD_ | _TBD_ | _TBD_ | _TBD_ |
+<img src="benchmarks/results/compression_ratio.png" alt="Bar graph showing data compression ratios versus pickle">
 
-Compression speed (MB/s, higher is better):
+Serialization speed (MB/s, higher is better):
 
-| Algorithm  | Level 1 | Level 3 (default) | Level 9 |
-|------------|---------|-------------------|---------|
-| `zstd`       | _TBD_ | _TBD_ | _TBD_ |
-| `brotli`     | _TBD_ | _TBD_ | _TBD_ |
-| `zlib`       | _TBD_ | _TBD_ | _TBD_ |
-| `lzma`       | _TBD_ | _TBD_ | _TBD_ |
+<img src="benchmarks/results/compression_speed.png" alt="Bar graph showing data compression speeds versus pickle">
 
 *Note: Performance varies by data characteristics. Run benchmarks on your specific data for accurate results.*
+
+To run your own benchmarks, you can use:
+
+```bash
+python -m benchmarks.benchmark
+```
 
 ## How It Works
 
