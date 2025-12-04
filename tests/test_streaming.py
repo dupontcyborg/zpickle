@@ -169,10 +169,10 @@ class TestNonSeekableStreams:
 
             def read(self, n=-1):
                 if n == -1:
-                    result = self._data[self._pos:]
+                    result = self._data[self._pos :]
                     self._pos = len(self._data)
                 else:
-                    result = self._data[self._pos:self._pos + n]
+                    result = self._data[self._pos : self._pos + n]
                     self._pos += n
                 return result
 
@@ -193,10 +193,10 @@ class TestNonSeekableStreams:
 
             def read(self, n=-1):
                 if n == -1:
-                    result = self._data[self._pos:]
+                    result = self._data[self._pos :]
                     self._pos = len(self._data)
                 else:
-                    result = self._data[self._pos:self._pos + n]
+                    result = self._data[self._pos : self._pos + n]
                     self._pos += n
                 return result
 
@@ -217,10 +217,10 @@ class TestNonSeekableStreams:
 
             def read(self, n=-1):
                 if n == -1:
-                    result = self._data[self._pos:]
+                    result = self._data[self._pos :]
                     self._pos = len(self._data)
                 else:
-                    result = self._data[self._pos:self._pos + n]
+                    result = self._data[self._pos : self._pos + n]
                     self._pos += n
                 return result
 
@@ -241,10 +241,10 @@ class TestNonSeekableStreams:
 
             def read(self, n=-1):
                 if n == -1:
-                    result = self._data[self._pos:]
+                    result = self._data[self._pos :]
                     self._pos = len(self._data)
                 else:
-                    result = self._data[self._pos:self._pos + n]
+                    result = self._data[self._pos : self._pos + n]
                     self._pos += n
                 return result
 
@@ -264,10 +264,10 @@ class TestNonSeekableStreams:
 
             def read(self, n=-1):
                 if n == -1:
-                    result = self._data[self._pos:]
+                    result = self._data[self._pos :]
                     self._pos = len(self._data)
                 else:
-                    result = self._data[self._pos:self._pos + n]
+                    result = self._data[self._pos : self._pos + n]
                     self._pos += n
                 return result
 
