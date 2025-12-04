@@ -10,7 +10,7 @@ build-backend = "setuptools.build_meta"
 name = "zpickle"
 description = "Transparent, drop-in compression for Python's pickle — smaller files, same API"
 readme = "README.md"
-requires-python = ">=3.8"
+requires-python = ">=3.10"
 license = {text = "MIT"}
 authors = [
     {name = "Nicolas Dupont"}
@@ -20,19 +20,18 @@ classifiers = [
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.8",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Topic :: System :: Archiving :: Compression",
     "Topic :: Software Development :: Libraries",
     "Operating System :: OS Independent",
 ]
 dependencies = [
-    "compress-utils>=0.4.0,<0.5.0",
+    "compress-utils>=0.5.0",
 ]
 dynamic = ["version"]
 
@@ -52,10 +51,37 @@ fallback_version = "0.0.0+unknown"
 packages = ["zpickle"]
 zip-safe = false
 
-[tool.black]
+[tool.ruff]
+# Same as Black
 line-length = 88
-target-version = ['py38', 'py39', 'py310', 'py311', 'py312']
+indent-width = 4
 
-[tool.isort]
-profile = "black"
-line_length = 88
+# Assume Python 3.10+
+target-version = "py310"
+
+[tool.ruff.lint]
+# Enable Pyflakes (`F`) and a subset of the pycodestyle (`E`) codes by default.
+# Unlike Flake8, Ruff doesn't enable pycodestyle warnings (`W`) or
+# McCabe complexity (`C901`) by default.
+select = ["E4", "E7", "E9", "F"]
+ignore = []
+
+# Allow fix for all enabled rules (when `--fix`) is provided.
+fixable = ["ALL"]
+unfixable = []
+
+# Allow unused variables when underscore-prefixed.
+dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
+
+[tool.ruff.format]
+# Like Black, use double quotes for strings.
+quote-style = "double"
+
+# Like Black, indent with spaces, rather than tabs.
+indent-style = "space"
+
+# Like Black, respect magic trailing commas.
+skip-magic-trailing-comma = false
+
+# Like Black, automatically detect the appropriate line ending.
+line-ending = "auto"

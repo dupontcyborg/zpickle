@@ -119,8 +119,9 @@ def decode_header(data: bytes, strict: bool = True) -> Tuple[int, str, int, int]
     # Check if version is supported
     if version > PROTOCOL_VERSION:
         msg = (
-            f"File uses zpickle protocol version {version}, but this code only "
-            f"supports up to version {PROTOCOL_VERSION}."
+            f"File uses zpickle format version {version}, but this library only "
+            f"supports up to version {PROTOCOL_VERSION}. "
+            f"Try upgrading: pip install --upgrade zpickle"
         )
         if strict:
             raise UnsupportedVersionError(msg)
@@ -130,13 +131,20 @@ def decode_header(data: bytes, strict: bool = True) -> Tuple[int, str, int, int]
     # Check if algorithm ID is recognized
     algorithm = ALGORITHMS.get(alg_id)
     if algorithm is None:
+        known_ids = ", ".join(f"{k}={v}" for k, v in sorted(ALGORITHMS.items()))
         if strict:
             raise UnsupportedAlgorithmError(
-                f"Unrecognized algorithm ID: {alg_id}. "
-                f"This file may have been created with a newer version of zpickle."
+                f"Unrecognized compression algorithm ID: {alg_id}. "
+                f"Known algorithm IDs: {known_ids}. "
+                f"This file may have been created with a newer version of zpickle. "
+                f"Try upgrading: pip install --upgrade zpickle"
             )
         else:
-            warnings.warn(f"Unrecognized algorithm ID: {alg_id}.", RuntimeWarning)
+            warnings.warn(
+                f"Unrecognized algorithm ID: {alg_id}. Known IDs: {known_ids}. "
+                f"Falling back to zstd.",
+                RuntimeWarning,
+            )
             # Fall back to zstd if not in strict mode
             algorithm = "zstd"
 

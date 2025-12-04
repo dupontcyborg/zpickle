@@ -17,7 +17,15 @@ from .compat import Pickler, Unpickler
 from .config import ZpickleConfig, configure, get_config
 
 # Import core functionality
-from .core import dump, dumps, load, loads
+from .core import (
+    DEFAULT_CHUNK_SIZE,
+    dump,
+    dump_streaming,
+    dumps,
+    load,
+    load_streaming,
+    loads,
+)
 
 # Make this module a drop-in replacement for pickle
 __all__ = [
@@ -26,6 +34,10 @@ __all__ = [
     "loads",
     "dump",
     "load",
+    # Streaming functions
+    "dump_streaming",
+    "load_streaming",
+    "DEFAULT_CHUNK_SIZE",
     # Classes
     "Pickler",
     "Unpickler",
@@ -40,11 +52,11 @@ __all__ = [
 # Re-export pickle's extended API for complete compatibility
 try:
     from pickle import (
-        DEFAULT_PROTOCOL,
-        HIGHEST_PROTOCOL,
-        PickleError,
-        PicklingError,
-        UnpicklingError,
+        DEFAULT_PROTOCOL as DEFAULT_PROTOCOL,
+        HIGHEST_PROTOCOL as HIGHEST_PROTOCOL,
+        PickleError as PickleError,
+        PicklingError as PicklingError,
+        UnpicklingError as UnpicklingError,
     )
 
     __all__.extend(

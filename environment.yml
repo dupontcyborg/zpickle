@@ -11,9 +11,7 @@ dependencies:
     - setuptools
     - pytest
     - pytest-cov
-    - black
-    - flake8
-    - isort
+    - ruff
     - mypy
     - pre-commit
     - compress-utils
