@@ -94,11 +94,15 @@ class Unpickler(pickle.Unpickler):
     """Subclass of pickle.Unpickler that handles compressed input.
 
     Args:
-        file: A file-like object with read and seek methods
+        file: A file-like object with a read method (seek not required)
         fix_imports: Fix imports for Python 2 compatibility
         encoding: Encoding for 8-bit string instances unpickled from str
         errors: Error handling scheme for decode errors
         buffers: Optional iterables of buffer-enabled objects
+
+    Note:
+        This class supports non-seekable streams (pipes, sockets) by
+        buffering the header bytes instead of seeking.
 
     Example:
         >>> import zpickle
@@ -141,12 +145,14 @@ class Unpickler(pickle.Unpickler):
                 buffers=buffers,
             )
         else:
-            # Assume it's regular pickle data, reset file position
-            file.seek(0)
+            # Not zpickle format - buffer header bytes for non-seekable stream support
+            # Read remaining data and prepend header
+            remaining_data = file.read()
+            self._buffer = io.BytesIO(header + remaining_data)
 
-            # Initialize the unpickler with the original file
+            # Initialize the unpickler with our buffer
             super().__init__(
-                file,
+                self._buffer,
                 fix_imports=fix_imports,
                 encoding=encoding,
                 errors=errors,

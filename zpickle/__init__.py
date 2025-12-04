@@ -17,7 +17,15 @@ from .compat import Pickler, Unpickler
 from .config import ZpickleConfig, configure, get_config
 
 # Import core functionality
-from .core import dump, dumps, load, loads
+from .core import (
+    DEFAULT_CHUNK_SIZE,
+    dump,
+    dump_streaming,
+    dumps,
+    load,
+    load_streaming,
+    loads,
+)
 
 # Make this module a drop-in replacement for pickle
 __all__ = [
@@ -26,6 +34,10 @@ __all__ = [
     "loads",
     "dump",
     "load",
+    # Streaming functions
+    "dump_streaming",
+    "load_streaming",
+    "DEFAULT_CHUNK_SIZE",
     # Classes
     "Pickler",
     "Unpickler",
