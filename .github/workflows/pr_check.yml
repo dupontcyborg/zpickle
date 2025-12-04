@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.8", "3.12"]  # Test with one older and one newer Python version
+        python-version: ["3.10", "3.14"]  # Test with one older and one newer Python version
       fail-fast: false
 
     steps:
