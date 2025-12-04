@@ -178,3 +178,6 @@ cython_debug/
 
 # Benchmarks
 benchmarks/datasets
+
+# setuptools_scm generated version file
+zpickle/_version.py
