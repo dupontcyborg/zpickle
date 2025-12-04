@@ -15,7 +15,7 @@ import sys
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Tuple, Optional, Union
+from typing import Any, Dict, List, Optional
 import urllib.request
 
 # Try to import visualization dependencies
@@ -295,10 +295,7 @@ def generate_numpy_arrays(size_mb: float = 5.0) -> Dict[str, np.ndarray]:
         return None
     
     print(f"Generating NumPy arrays (≈{size_mb} MB)...")
-    
-    # Calculate total size to target
-    target_bytes = int(size_mb * 1024 * 1024)
-    
+
     # Create a collection of different array types
     arrays = {}
     
@@ -613,10 +610,10 @@ def create_visualizations(results: List[BenchmarkResult], output_dir: str):
     
     # Create compression speed plot
     plt.figure()
-    speed_plot = sns.barplot(
-        data=df, 
-        x="Algorithm", 
-        y="Compression Speed (MB/s)", 
+    sns.barplot(
+        data=df,
+        x="Algorithm",
+        y="Compression Speed (MB/s)",
         hue="Dataset"
     )
     plt.title("Compression Speed by Algorithm and Dataset")
@@ -629,10 +626,10 @@ def create_visualizations(results: List[BenchmarkResult], output_dir: str):
     
     # Create decompression speed plot
     plt.figure()
-    speed_plot = sns.barplot(
-        data=df, 
-        x="Algorithm", 
-        y="Decompression Speed (MB/s)", 
+    sns.barplot(
+        data=df,
+        x="Algorithm",
+        y="Decompression Speed (MB/s)",
         hue="Dataset"
     )
     plt.title("Decompression Speed by Algorithm and Dataset")
@@ -645,10 +642,10 @@ def create_visualizations(results: List[BenchmarkResult], output_dir: str):
     
     # Create compression ratio plot
     plt.figure()
-    ratio_plot = sns.barplot(
-        data=df, 
-        x="Algorithm", 
-        y="Compression Ratio", 
+    sns.barplot(
+        data=df,
+        x="Algorithm",
+        y="Compression Ratio",
         hue="Dataset"
     )
     plt.title("Compression Ratio by Algorithm and Dataset")
@@ -722,7 +719,7 @@ def main():
     
     args = parser.parse_args()
     
-    print(f"Running zpickle benchmarks with real-world datasets")
+    print("Running zpickle benchmarks with real-world datasets")
     print(f"- Generated data size: ~{args.size} MB per category")
     print(f"- Repetitions: {args.repetitions}")
     print(f"- Testing algorithms: {', '.join(ALGORITHMS)}")

@@ -2,11 +2,9 @@
 Edge case tests for zpickle.
 """
 
-import io
 import pickle
 import struct
 
-import pytest
 
 import zpickle
 from zpickle.format import HEADER_SIZE, ZPICKLE_MAGIC

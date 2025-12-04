@@ -52,11 +52,11 @@ __all__ = [
 # Re-export pickle's extended API for complete compatibility
 try:
     from pickle import (
-        DEFAULT_PROTOCOL,
-        HIGHEST_PROTOCOL,
-        PickleError,
-        PicklingError,
-        UnpicklingError,
+        DEFAULT_PROTOCOL as DEFAULT_PROTOCOL,
+        HIGHEST_PROTOCOL as HIGHEST_PROTOCOL,
+        PickleError as PickleError,
+        PicklingError as PicklingError,
+        UnpicklingError as UnpicklingError,
     )
 
     __all__.extend(

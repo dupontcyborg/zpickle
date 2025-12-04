@@ -8,7 +8,7 @@ functions (dumps, loads, dump, load) with compression support.
 import io
 import pickle
 import warnings
-from typing import Any, BinaryIO, Optional, Union
+from typing import Any, BinaryIO, Optional
 
 from compress_utils import compress, decompress, CompressStream, DecompressStream
 

@@ -7,7 +7,6 @@ with the pickle API but add transparent compression support.
 
 import io
 import pickle
-from typing import Any, BinaryIO, Optional
 
 from compress_utils import compress, decompress
 

@@ -8,7 +8,7 @@
 <p align="center">
   <img src="https://img.shields.io/pypi/pyversions/zpickle" alt="Python Versions"/>
   <img src="https://img.shields.io/pypi/v/zpickle" alt="PyPI Version"/>
-  <!-- <img src="https://static.pepy.tech/badge/zpickle" alt="PyPI Downloads"> -->
+  <img src="https://static.pepy.tech/badge/zpickle" alt="PyPI Downloads">
 </p>
 
 **Transparent, drop-in compression for Python's pickle — smaller files, same API.**
