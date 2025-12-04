@@ -66,18 +66,14 @@ jobs:
       - name: Install linting tools
         run: |
           python -m pip install --upgrade pip
-          python -m pip install flake8 black isort mypy
+          python -m pip install ruff
 
-      - name: Run linters
+      - name: Run ruff linter
+        run: |
+          # Run linting checks
+          ruff check zpickle tests benchmarks
+
+      - name: Run ruff formatter
         run: |
           # Check code formatting
-          black --check zpickle tests
-          
-          # Check import sorting
-          isort --check zpickle tests
-          
-          # Run static analysis
-          flake8 zpickle tests
-          
-          # Run type checking (if you use type annotations)
-          # mypy zpickle
+          ruff format --check zpickle tests benchmarks
