@@ -157,3 +157,60 @@ def test_pickler_unpickler_classes(test_data):
     restored = unpickler.load()
 
     assert restored == test_data
+
+
+def test_dump_load_large_data_with_streaming():
+    """Test that dump() uses streaming compression for large data."""
+    # Create a large dataset (10MB of repetitive data that compresses well)
+    large_data = {
+        "repeated_string": "This is a test string. " * 100000,  # ~2.3MB
+        "large_list": list(range(100000)) * 10,  # ~10MB when pickled
+        "nested": {
+            "data": ["x" * 1000 for _ in range(1000)],  # ~1MB
+        },
+    }
+
+    # Test with zpickle using dump() (should use streaming compression)
+    zpickle_buffer = io.BytesIO()
+    zpickle.dump(large_data, zpickle_buffer)
+    zpickle_size = len(zpickle_buffer.getvalue())
+
+    # Test with regular pickle for comparison
+    pickle_buffer = io.BytesIO()
+    pickle.dump(large_data, pickle_buffer)
+    pickle_size = len(pickle_buffer.getvalue())
+
+    # Verify zpickle is significantly smaller (at least 50% compression)
+    compression_ratio = zpickle_size / pickle_size
+    assert compression_ratio < 0.5, (
+        f"Expected >50% compression, got {compression_ratio:.1%}"
+    )
+
+    # Verify we can load it back correctly with load() (streaming decompression)
+    zpickle_buffer.seek(0)
+    restored = zpickle.load(zpickle_buffer)
+
+    # Verify data integrity
+    assert restored == large_data
+    assert len(restored["large_list"]) == 1000000
+    assert restored["repeated_string"].startswith("This is a test string. ")
+
+    # Test with actual file to ensure streaming works with real files
+    with tempfile.NamedTemporaryFile(delete=False) as temp:
+        try:
+            zpickle.dump(large_data, temp)
+            temp.close()
+
+            file_size = os.path.getsize(temp.name)
+            assert file_size < pickle_size * 0.5, (
+                "File should be compressed with streaming"
+            )
+
+            with open(temp.name, "rb") as f:
+                restored_from_file = zpickle.load(f)
+
+            assert restored_from_file == large_data
+
+        finally:
+            if os.path.exists(temp.name):
+                os.unlink(temp.name)

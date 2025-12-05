@@ -20,10 +20,8 @@ from .config import ZpickleConfig, configure, get_config
 from .core import (
     DEFAULT_CHUNK_SIZE,
     dump,
-    dump_streaming,
     dumps,
     load,
-    load_streaming,
     loads,
 )
 
@@ -34,9 +32,6 @@ __all__ = [
     "loads",
     "dump",
     "load",
-    # Streaming functions
-    "dump_streaming",
-    "load_streaming",
     "DEFAULT_CHUNK_SIZE",
     # Classes
     "Pickler",
