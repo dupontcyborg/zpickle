@@ -5,7 +5,6 @@ This module implements the main serialization and deserialization
 functions (dumps, loads, dump, load) with compression support.
 """
 
-import io
 import pickle
 import warnings
 from typing import Any, BinaryIO, Optional
@@ -17,6 +16,82 @@ from .format import HEADER_SIZE, decode_header, encode_header, is_zpickle_data
 
 # Default chunk size for streaming operations (64KB)
 DEFAULT_CHUNK_SIZE = 64 * 1024
+
+
+class CompressingWriter:
+    """Wrapper that compresses data as it's written."""
+
+    def __init__(self, file: BinaryIO, compressor: CompressStream):
+        self.file = file
+        self.compressor = compressor
+
+    def write(self, data: bytes) -> int:
+        """Compress and write data to the underlying file."""
+        compressed = self.compressor.compress(data)
+        if compressed:
+            self.file.write(compressed)
+        return len(data)  # Return original data length for pickle
+
+    def flush(self):
+        """Flush any remaining compressed data."""
+        final = self.compressor.finish()
+        if final:
+            self.file.write(final)
+
+
+class DecompressingReader:
+    """Wrapper that decompresses data as it's read."""
+
+    def __init__(
+        self,
+        file: BinaryIO,
+        decompressor: DecompressStream,
+        chunk_size: int = DEFAULT_CHUNK_SIZE,
+    ):
+        self.file = file
+        self.decompressor = decompressor
+        self.buffer = b""
+        self.chunk_size = chunk_size
+        self.finished = False
+
+    def read(self, size: int = -1) -> bytes:
+        """Read and decompress data from the underlying file."""
+        # If size=-1, read everything
+        if size == -1:
+            # Read and decompress all remaining data
+            while not self.finished:
+                self._decompress_next_chunk()
+            result = self.buffer
+            self.buffer = b""
+            return result
+
+        # Read enough to satisfy the request
+        while len(self.buffer) < size and not self.finished:
+            self._decompress_next_chunk()
+
+        # Return requested amount from buffer
+        result = self.buffer[:size]
+        self.buffer = self.buffer[size:]
+        return result
+
+    def readline(self) -> bytes:
+        """Read a line - pickle doesn't actually use this but requires it."""
+        # Pickle requires this method but doesn't use it for protocol >= 2
+        return b""
+
+    def _decompress_next_chunk(self):
+        """Read and decompress the next chunk from file."""
+        compressed_chunk = self.file.read(self.chunk_size)
+        if compressed_chunk:
+            decompressed = self.decompressor.decompress(compressed_chunk)
+            if decompressed:
+                self.buffer += decompressed
+        else:
+            # File exhausted, finish decompression
+            final = self.decompressor.finish()
+            if final:
+                self.buffer += final
+            self.finished = True
 
 
 def dumps(
@@ -156,6 +231,10 @@ def dump(
 ) -> None:
     """Pickle and compress an object, writing the result to a file.
 
+    This function uses streaming compression to reduce memory usage when
+    serializing objects. The data is compressed as pickle writes it, avoiding
+    the need to buffer the entire pickled object in memory.
+
     Args:
         obj: The Python object to pickle and compress
         file: A file-like object with a write method
@@ -171,15 +250,42 @@ def dump(
         >>> with open('data.zpkl', 'wb') as f:
         ...     zpickle.dump(data, f)
     """
-    data = dumps(
+    # Get compression settings
+    config = get_config()
+    alg = algorithm or config.algorithm
+    lvl = level or config.level
+
+    # Write header first
+    header = encode_header(alg, lvl)
+    file.write(header)
+
+    # Skip compression for 'none' algorithm
+    if alg == "none":
+        # Write pickled data directly (no compression)
+        pickle.dump(
+            obj,
+            file,
+            protocol,
+            fix_imports=fix_imports,
+            buffer_callback=buffer_callback,
+        )
+        return
+
+    # Create streaming compressor
+    compressor = CompressStream(alg, lvl)
+    writer = CompressingWriter(file, compressor)
+
+    # Stream pickle → compress → file
+    pickle.dump(
         obj,
+        writer,
         protocol,
         fix_imports=fix_imports,
         buffer_callback=buffer_callback,
-        algorithm=algorithm,
-        level=level,
     )
-    file.write(data)
+
+    # Flush any remaining compressed data
+    writer.flush()
 
 
 def load(
@@ -192,6 +298,10 @@ def load(
     strict: bool = True,
 ) -> Any:
     """Decompress and unpickle an object from a file.
+
+    This function uses streaming decompression to reduce memory usage when
+    deserializing objects. The data is decompressed as pickle reads it, avoiding
+    the need to buffer the entire compressed object in memory.
 
     Args:
         file: A file-like object with a read method (seek not required)
@@ -217,172 +327,6 @@ def load(
     # Read the header first to determine format
     header = file.read(HEADER_SIZE)
 
-    if is_zpickle_data(header):
-        try:
-            # This is zpickle data, get algorithm info
-            _, algorithm, _, _ = decode_header(header, strict)
-
-            # Read the rest of the file
-            compressed_data = file.read()
-
-            # Decompress based on algorithm
-            if algorithm == "none":
-                pickled_data = compressed_data
-            else:
-                # Decompress the data
-                pickled_data = decompress(compressed_data, algorithm)
-
-        except Exception as e:
-            if strict:
-                raise
-
-            # In non-strict mode, fall back to treating as regular pickle
-            warnings.warn(
-                f"Error processing zpickle data, falling back to regular pickle: {e}",
-                RuntimeWarning,
-            )
-            # Buffer header bytes for non-seekable stream support
-            pickled_data = header + file.read()
-    else:
-        # Not zpickle format - include header bytes in pickled data
-        # This handles non-seekable streams properly
-        pickled_data = header + file.read()
-
-    # Unpickle and return
-    return pickle.loads(
-        pickled_data,
-        fix_imports=fix_imports,
-        encoding=encoding,
-        errors=errors,
-        buffers=buffers,
-    )
-
-
-def dump_streaming(
-    obj: Any,
-    file: BinaryIO,
-    protocol: Optional[int] = None,
-    *,
-    fix_imports: bool = True,
-    buffer_callback: Optional[Any] = None,
-    algorithm: Optional[str] = None,
-    level: Optional[int] = None,
-    chunk_size: int = DEFAULT_CHUNK_SIZE,
-) -> None:
-    """Pickle and compress an object using streaming compression.
-
-    This function uses streaming compression to reduce memory usage when
-    serializing large objects. Instead of compressing all data at once,
-    it processes the data in chunks.
-
-    Args:
-        obj: The Python object to pickle and compress
-        file: A file-like object with a write method
-        protocol: The pickle protocol to use
-        fix_imports: Fix imports for Python 2 compatibility
-        buffer_callback: Callback for handling buffer objects
-        algorithm: Compression algorithm to use (overrides global config)
-        level: Compression level to use (overrides global config)
-        chunk_size: Size of chunks for streaming compression (default 64KB)
-
-    Example:
-        >>> import zpickle
-        >>> large_data = {"example": list(range(1000000))}
-        >>> with open('data.zpkl', 'wb') as f:
-        ...     zpickle.dump_streaming(large_data, f)
-    """
-    # Get compression settings
-    config = get_config()
-    alg = algorithm or config.algorithm
-    lvl = level or config.level
-
-    # First, pickle the object to a buffer
-    # We need to pickle first to know the size and to stream it
-    pickled_buffer = io.BytesIO()
-    pickle.dump(
-        obj,
-        pickled_buffer,
-        protocol,
-        fix_imports=fix_imports,
-        buffer_callback=buffer_callback,
-    )
-    pickled_buffer.seek(0)
-
-    # Skip compression for very small objects or if algorithm is 'none'
-    pickled_size = pickled_buffer.seek(0, 2)  # Seek to end to get size
-    pickled_buffer.seek(0)  # Reset to beginning
-
-    if pickled_size < config.min_size or alg == "none":
-        # Still add header for consistency
-        header = encode_header("none", 0)
-        file.write(header)
-        # Write pickled data directly
-        while True:
-            chunk = pickled_buffer.read(chunk_size)
-            if not chunk:
-                break
-            file.write(chunk)
-        return
-
-    # Write header first
-    header = encode_header(alg, lvl)
-    file.write(header)
-
-    # Create streaming compressor
-    compressor = CompressStream(alg, lvl)
-
-    # Stream compress and write
-    while True:
-        chunk = pickled_buffer.read(chunk_size)
-        if not chunk:
-            break
-        compressed_chunk = compressor.compress(chunk)
-        if compressed_chunk:
-            file.write(compressed_chunk)
-
-    # Finish compression and write any remaining data
-    final_chunk = compressor.finish()
-    if final_chunk:
-        file.write(final_chunk)
-
-
-def load_streaming(
-    file: BinaryIO,
-    *,
-    fix_imports: bool = True,
-    encoding: str = "ASCII",
-    errors: str = "strict",
-    buffers: Optional[Any] = None,
-    strict: bool = True,
-    chunk_size: int = DEFAULT_CHUNK_SIZE,
-) -> Any:
-    """Decompress and unpickle an object using streaming decompression.
-
-    This function uses streaming decompression to reduce memory usage when
-    deserializing large objects. Instead of decompressing all data at once,
-    it processes the data in chunks.
-
-    Args:
-        file: A file-like object with read method
-        fix_imports: Fix imports for Python 2 compatibility
-        encoding: Encoding for 8-bit string instances unpickled from str
-        errors: Error handling scheme for decode errors
-        buffers: Optional iterables of buffer-enabled objects
-        strict: If True, raises errors for unsupported versions/algorithms.
-               If False, attempts to load the data with warnings.
-        chunk_size: Size of chunks for streaming decompression (default 64KB)
-
-    Returns:
-        Any: The unpickled Python object
-
-    Example:
-        >>> import zpickle
-        >>> with open('data.zpkl', 'rb') as f:
-        ...     data = zpickle.load_streaming(f)
-    """
-    # Read the header first to determine format
-    header = file.read(HEADER_SIZE)
-
     if len(header) < HEADER_SIZE:
         # Not enough data for header, treat as regular pickle
         # Buffer the header bytes for non-seekable streams
@@ -400,35 +344,29 @@ def load_streaming(
             # This is zpickle data, get algorithm info
             _, algorithm, _, _ = decode_header(header, strict)
 
+            # Handle uncompressed data
             if algorithm == "none":
-                # No compression, stream directly to buffer
-                pickled_buffer = io.BytesIO()
-                while True:
-                    chunk = file.read(chunk_size)
-                    if not chunk:
-                        break
-                    pickled_buffer.write(chunk)
-                pickled_data = pickled_buffer.getvalue()
-            else:
-                # Create streaming decompressor
-                decompressor = DecompressStream(algorithm)
-                pickled_buffer = io.BytesIO()
+                # No compression, read directly from file
+                return pickle.load(
+                    file,
+                    fix_imports=fix_imports,
+                    encoding=encoding,
+                    errors=errors,
+                    buffers=buffers,
+                )
 
-                # Stream decompress
-                while True:
-                    chunk = file.read(chunk_size)
-                    if not chunk:
-                        break
-                    decompressed_chunk = decompressor.decompress(chunk)
-                    if decompressed_chunk:
-                        pickled_buffer.write(decompressed_chunk)
+            # Create streaming decompressor
+            decompressor = DecompressStream(algorithm)
+            reader = DecompressingReader(file, decompressor)
 
-                # Finish decompression
-                final_chunk = decompressor.finish()
-                if final_chunk:
-                    pickled_buffer.write(final_chunk)
-
-                pickled_data = pickled_buffer.getvalue()
+            # Stream file → decompress → pickle.load()
+            return pickle.load(
+                reader,
+                fix_imports=fix_imports,
+                encoding=encoding,
+                errors=errors,
+                buffers=buffers,
+            )
 
         except Exception as e:
             if strict:
@@ -439,19 +377,51 @@ def load_streaming(
                 f"Error processing zpickle data, falling back to regular pickle: {e}",
                 RuntimeWarning,
             )
-            # For streaming, we can't seek back, so we need to include header
+            # For non-seekable streams, we can't go back - this is best effort
             pickled_data = header + file.read()
+            return pickle.loads(
+                pickled_data,
+                fix_imports=fix_imports,
+                encoding=encoding,
+                errors=errors,
+                buffers=buffers,
+            )
     else:
-        # Not zpickle format - include header bytes in pickled data
-        # This handles non-seekable streams properly
-        remaining_data = file.read()
-        pickled_data = header + remaining_data
+        # Not zpickle format - include header bytes for non-seekable streams
+        # We need to wrap the file with a reader that first yields the header
+        class HeaderPrependReader:
+            def __init__(self, header_bytes, file_obj):
+                self.header = header_bytes
+                self.file = file_obj
+                self.header_consumed = False
 
-    # Unpickle and return
-    return pickle.loads(
-        pickled_data,
-        fix_imports=fix_imports,
-        encoding=encoding,
-        errors=errors,
-        buffers=buffers,
-    )
+            def read(self, size=-1):
+                if not self.header_consumed:
+                    self.header_consumed = True
+                    if size == -1:
+                        return self.header + self.file.read()
+                    elif size <= len(self.header):
+                        result = self.header[:size]
+                        self.header = self.header[size:]
+                        self.header_consumed = len(self.header) == 0
+                        return result
+                    else:
+                        remaining = size - len(self.header)
+                        result = self.header + self.file.read(remaining)
+                        self.header = b""
+                        return result
+                else:
+                    return self.file.read(size)
+
+            def readline(self):
+                """Read a line - pickle doesn't actually use this but requires it."""
+                return b""
+
+        reader = HeaderPrependReader(header, file)
+        return pickle.load(
+            reader,
+            fix_imports=fix_imports,
+            encoding=encoding,
+            errors=errors,
+            buffers=buffers,
+        )
