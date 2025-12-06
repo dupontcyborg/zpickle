@@ -33,6 +33,8 @@ ALGORITHMS = {
     2: "brotli",  # Brotli compression
     3: "zlib",  # zlib/gzip compression
     4: "lzma",  # LZMA/xz compression
+    5: "bzip2",  # bzip2 compression
+    6: "lz4",  # LZ4 compression
 }
 
 # Reverse mapping (name to byte ID)

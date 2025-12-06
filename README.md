@@ -29,7 +29,7 @@ import zpickle as pickle
 
 - **Drop-in replacement** for the standard `pickle` module
 - **Transparent compression** — everything happens automatically
-- **Multiple algorithms** — choose `zstd`, `brotli`, `zlib`, or `lzma` (powered by [`compress_utils`](https://github.com/dupontcyborg/compress-utils))
+- **Multiple algorithms** — choose `zstd`, `brotli`, `zlib`, `lzma`, `bzip2`, or `lz4` (powered by [`compress_utils`](https://github.com/dupontcyborg/compress-utils))
 - **Configure once, use everywhere** — set global defaults for your entire app
 - **Smaller data** — 2-10× smaller serialized data (depending on content and algorithm)
 - **Backward compatible** — automatically reads both compressed and regular pickle data

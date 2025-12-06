@@ -18,7 +18,7 @@ class ZpickleConfig:
 
     Attributes:
         algorithm (str): Compression algorithm to use.
-            Options: 'zstd', 'brotli', 'zlib', 'lzma', 'none'
+            Options: 'zstd', 'brotli', 'zlib', 'lzma', 'bzip2', 'lz4', 'none'
         level (int): Compression level (1-10, higher = more compression)
         min_size (int): Minimum size in bytes before compression is applied
     """
@@ -62,7 +62,7 @@ def configure(
 
     Args:
         algorithm (str, optional): Compression algorithm to use.
-            Options: 'zstd', 'brotli', 'zlib', 'lzma', 'none'
+            Options: 'zstd', 'brotli', 'zlib', 'lzma', 'bzip2', 'lz4', 'none'
         level (int, optional): Compression level (1-10, higher = more compression)
         min_size (int, optional): Minimum size in bytes before compression is applied
 

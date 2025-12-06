@@ -5,7 +5,7 @@ This module defines custom exceptions raised by zpickle.
 """
 
 # Supported algorithms for helpful error messages
-SUPPORTED_ALGORITHMS = ("zstd", "brotli", "zlib", "lzma", "none")
+SUPPORTED_ALGORITHMS = ("zstd", "brotli", "zlib", "lzma", "bzip2", "lz4", "none")
 
 
 class ZpickleError(Exception):
@@ -49,7 +49,7 @@ class InvalidFormatError(ZpickleError):
 class UnsupportedAlgorithmError(ZpickleError):
     """Exception raised when an unsupported compression algorithm is requested.
 
-    Supported algorithms are: zstd, brotli, zlib, lzma, none
+    Supported algorithms are: zstd, brotli, zlib, lzma, bzip2, lz4, none
     """
 
     def __init__(self, message=None, algorithm=None):
