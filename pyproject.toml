@@ -15,7 +15,7 @@ license = {text = "MIT"}
 authors = [
     {name = "Nicolas Dupont"}
 ]
-keywords = ["pickle", "compression", "serialization", "zstd", "brotli", "zlib", "lzma"]
+keywords = ["pickle", "compression", "serialization", "zstd", "brotli", "zlib", "lzma", "bzip2", "lz4"]
 classifiers = [
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
@@ -31,7 +31,7 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 dependencies = [
-    "compress-utils>=0.5.0",
+    "compress-utils>=0.6.0",
 ]
 dynamic = ["version"]
 
