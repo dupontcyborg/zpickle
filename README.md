@@ -78,6 +78,8 @@ compressed = zpickle.dumps(data, algorithm='zstd', level=6)
 
 ## Performance
 
+Each algorithm is benchmarked at compress-utils level 3 (zpickle's default) on two datasets (complex Python objects, JSON).
+
 Compression ratios versus standard `pickle` (higher is better):
 
 <img src="https://raw.githubusercontent.com/dupontcyborg/zpickle/main/benchmarks/results/compression_ratio.png" alt="Bar graph showing data compression ratios versus pickle">
@@ -133,7 +135,7 @@ python -m benchmarks.benchmark
 
 ## License
 
-This project is distributed under the MIT License. [Read more >](LICENSE)
+MIT © [Nicolas Dupont](https://nico.codes) — [Read more >](LICENSE)
 
 ## Links
 
