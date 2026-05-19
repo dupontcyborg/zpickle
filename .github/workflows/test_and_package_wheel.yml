@@ -3,8 +3,11 @@ name: Test and Package zpickle
 on:
   push:
     branches: ["main"]
-    tags: 
+    tags:
       - "v*"
+
+permissions:
+  contents: read
 
 jobs:
   test_sdist:
@@ -17,12 +20,12 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python-version }}
 
@@ -62,12 +65,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v6
         with:
           python-version: "3.13"
 
@@ -91,7 +94,7 @@ jobs:
           ls -la dist/
 
       - name: Store distributions as artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: zpickle-dist
           path: dist/*
@@ -108,7 +111,7 @@ jobs:
     
     steps:
       - name: Download distribution artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: zpickle-dist
           path: dist
@@ -124,7 +127,7 @@ jobs:
           echo "RELEASE_VERSION=$VERSION" >> $GITHUB_ENV
 
       - name: Publish to GitHub Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           files: |
             zpickle-${{ env.RELEASE_VERSION }}-dist.zip
