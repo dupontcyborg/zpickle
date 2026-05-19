@@ -41,6 +41,14 @@ except ImportError:
     print("Warning: NumPy not found. NumPy array tests will be skipped.")
 
 try:
+    import pandas as pd_data  # separate alias for dataset generation
+
+    HAS_PANDAS = True
+except ImportError:
+    HAS_PANDAS = False
+    print("Warning: pandas not found. DataFrame tests will be skipped.")
+
+try:
     sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
     import zpickle
 except ImportError:
@@ -49,12 +57,20 @@ except ImportError:
 
 # Constants for algorithms
 ALGORITHMS = [
-    "none",  # Standard pickle (no compression)
-    "zstd",  # Zstandard (default in zpickle)
+    "none",  # Standard pickle (no compression) — baseline, kept first
     "brotli",  # Brotli compression
-    "zlib",  # zlib/gzip compression
+    "bzip2",  # bzip2 compression
+    "lz4",  # LZ4 (fast) compression
     "lzma",  # LZMA/xz compression
+    "zlib",  # zlib/gzip compression
+    "zstd",  # Zstandard (default in zpickle)
 ]
+
+# Single shared compression level across all codecs.
+# compress-utils normalizes 1–10 across algorithms, and this matches
+# zpickle's own DEFAULT_LEVEL (see zpickle/config.py) — so the benchmark
+# reflects what users actually get out of the box.
+BENCHMARK_LEVEL = 3
 
 # Dataset definitions - each has a name, type, and source
 # Dataset definitions - each has a name, type, and source
@@ -72,13 +88,6 @@ DATASETS = [
         "description": "Complex Python object structures",
         "generated": True,
         "generator": "generate_complex_objects",
-    },
-    {
-        "name": "NumPy Arrays",
-        "type": "numpy",
-        "description": "Various NumPy array types",
-        "generated": True,
-        "generator": "generate_numpy_arrays",
     },
     {
         "name": "JSON",
@@ -378,6 +387,73 @@ def generate_numpy_arrays(size_mb: float = 5.0) -> Dict[str, np.ndarray]:
     return arrays
 
 
+def generate_dataframe(size_mb: float = 5.0):
+    """Generate a realistic string-heavy pandas DataFrame (log/event table)."""
+    if not HAS_PANDAS or not HAS_NUMPY:
+        return None
+
+    print(f"Generating DataFrame dataset (≈{size_mb} MB)...")
+
+    # Object-dtype columns dominate the pickle size; tune rows to hit target.
+    # Average row ≈ 200 bytes after pickling (message + user agent dominate).
+    rows = max(1, int(size_mb * 1024 * 1024 / 200))
+
+    rng = np.random.default_rng(seed=42)
+
+    levels = np.array(["INFO", "WARN", "ERROR", "DEBUG"], dtype=object)
+    services = np.array(
+        ["auth", "api-gateway", "checkout", "search", "billing", "notifier"],
+        dtype=object,
+    )
+    user_agents = np.array(
+        [
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0",
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Safari/17.0",
+            "Mozilla/5.0 (X11; Linux x86_64) Firefox/121.0",
+            "okhttp/4.12.0",
+            "python-requests/2.31.0",
+        ],
+        dtype=object,
+    )
+    templates = np.array(
+        [
+            "request completed in {ms}ms",
+            "user {uid} authenticated successfully",
+            "cache miss for key={key}",
+            "downstream call to billing failed: timeout after {ms}ms",
+            "rate limit exceeded for tenant {uid}",
+        ],
+        dtype=object,
+    )
+
+    user_ids = rng.integers(0, 50_000, size=rows)
+    keys = rng.integers(0, 1_000, size=rows)
+    latencies = rng.integers(1, 5000, size=rows)
+    chosen = rng.integers(0, len(templates), size=rows)
+    messages = np.array(
+        [
+            templates[c].format(ms=latencies[i], uid=user_ids[i], key=keys[i])
+            for i, c in enumerate(chosen)
+        ],
+        dtype=object,
+    )
+
+    df = pd_data.DataFrame(
+        {
+            "timestamp": pd_data.date_range("2024-01-01", periods=rows, freq="s"),
+            "level": pd_data.Categorical(rng.choice(levels, size=rows)),
+            "service": pd_data.Categorical(rng.choice(services, size=rows)),
+            "user_id": np.array([f"usr_{u:08d}" for u in user_ids], dtype=object),
+            "user_agent": rng.choice(user_agents, size=rows),
+            "status_code": rng.choice([200, 200, 200, 301, 404, 500], size=rows),
+            "latency_ms": latencies,
+            "message": messages,
+        }
+    )
+
+    return df
+
+
 def load_dataset(
     dataset_config: Dict[str, Any], size_mb: Optional[float] = None
 ) -> Any:
@@ -399,6 +475,8 @@ def load_dataset(
         elif name == "NumPy Arrays" and HAS_NUMPY:
             print(f"Generating NumPy arrays dataset (≈{size_mb or 5.0} MB)...")
             return generate_numpy_arrays(size_mb or 5.0)
+        elif name == "DataFrame" and HAS_PANDAS and HAS_NUMPY:
+            return generate_dataframe(size_mb or 5.0)
         else:
             print(f"Unknown generated dataset: {name}")
             return None
@@ -426,9 +504,9 @@ def load_dataset(
 
 
 def benchmark_algorithm(
-    algorithm: str, data: Any, dataset_name: str
+    algorithm: str, data: Any, dataset_name: str, level: int = 3
 ) -> BenchmarkResult:
-    """Benchmark a specific algorithm with the given data."""
+    """Benchmark a specific algorithm + level with the given data."""
     # Measure original size
     pickle_data = pickle.dumps(data)
     data_size_mb = len(pickle_data) / (1024 * 1024)
@@ -448,8 +526,8 @@ def benchmark_algorithm(
         pickle.loads(compressed)
         decompression_time = time.time() - start_time
     else:
-        # Configure zpickle with the specified algorithm
-        zpickle.configure(algorithm=algorithm)
+        # Configure zpickle with the specified algorithm + level
+        zpickle.configure(algorithm=algorithm, level=level)
 
         # Measure compression time
         start_time = time.time()
@@ -498,14 +576,16 @@ def run_benchmarks(
             continue
 
         for algorithm in ALGORITHMS:
-            print(f"Benchmarking {algorithm} with {dataset_name} dataset...")
+            level = BENCHMARK_LEVEL
+            print(f"Benchmarking {algorithm} (level={level}) on {dataset_name}...")
 
-            # Run multiple repetitions
             dataset_results = []
             for i in range(repetitions):
                 print(f"  Repetition {i + 1}/{repetitions}...")
                 try:
-                    result = benchmark_algorithm(algorithm, data, dataset_name)
+                    result = benchmark_algorithm(
+                        algorithm, data, dataset_name, level=level
+                    )
                     dataset_results.append(result)
                 except Exception as e:
                     print(f"  Error during benchmark: {e}")
@@ -515,7 +595,6 @@ def run_benchmarks(
                 print(f"  No valid results for {algorithm} on {dataset_name}")
                 continue
 
-            # Average the results
             avg_result = BenchmarkResult(
                 algorithm=algorithm,
                 dataset=dataset_name,
@@ -531,7 +610,6 @@ def run_benchmarks(
 
             results.append(avg_result)
 
-            # Print interim result
             ratio = avg_result.compression_ratio
             comp_speed = avg_result.compression_speed
             decomp_speed = avg_result.decompression_speed
@@ -567,7 +645,7 @@ def print_tables(results: List[BenchmarkResult]):
     print("-" * 100)
     header = "Algorithm".ljust(15)
     for dataset in datasets:
-        header += f"{dataset[:12].ljust(15)}"
+        header += f"{dataset[:22].ljust(24)}"
     print(header)
     print("-" * 100)
 
@@ -578,9 +656,9 @@ def print_tables(results: List[BenchmarkResult]):
         for dataset in datasets:
             if dataset in data[algorithm]:
                 speed = data[algorithm][dataset]["compression_speed"]
-                line += f"{speed:.2f}".ljust(15)
+                line += f"{speed:.2f}".ljust(24)
             else:
-                line += "N/A".ljust(15)
+                line += "N/A".ljust(24)
         print(line)
 
     # Print decompression speed table
@@ -588,7 +666,7 @@ def print_tables(results: List[BenchmarkResult]):
     print("-" * 100)
     header = "Algorithm".ljust(15)
     for dataset in datasets:
-        header += f"{dataset[:12].ljust(15)}"
+        header += f"{dataset[:22].ljust(24)}"
     print(header)
     print("-" * 100)
 
@@ -599,9 +677,9 @@ def print_tables(results: List[BenchmarkResult]):
         for dataset in datasets:
             if dataset in data[algorithm]:
                 speed = data[algorithm][dataset]["decompression_speed"]
-                line += f"{speed:.2f}".ljust(15)
+                line += f"{speed:.2f}".ljust(24)
             else:
-                line += "N/A".ljust(15)
+                line += "N/A".ljust(24)
         print(line)
 
     # Print compression ratio table
@@ -609,7 +687,7 @@ def print_tables(results: List[BenchmarkResult]):
     print("-" * 100)
     header = "Algorithm".ljust(15)
     for dataset in datasets:
-        header += f"{dataset[:12].ljust(15)}"
+        header += f"{dataset[:22].ljust(24)}"
     print(header)
     print("-" * 100)
 
@@ -620,9 +698,9 @@ def print_tables(results: List[BenchmarkResult]):
         for dataset in datasets:
             if dataset in data[algorithm]:
                 ratio = data[algorithm][dataset]["compression_ratio"]
-                line += f"{ratio:.2f}".ljust(15)
+                line += f"{ratio:.2f}".ljust(24)
             else:
-                line += "N/A".ljust(15)
+                line += "N/A".ljust(24)
         print(line)
 
 
@@ -654,38 +732,36 @@ def create_visualizations(results: List[BenchmarkResult], output_dir: str):
     sns.set_style("whitegrid")
     plt.rcParams["figure.figsize"] = (14, 10)
 
-    # Create compression speed plot
-    plt.figure()
-    sns.barplot(data=df, x="Algorithm", y="Compression Speed (MB/s)", hue="Dataset")
-    plt.title("Compression Speed by Algorithm and Dataset")
-    plt.ylabel("Speed (MB/s)")
-    plt.xticks(rotation=0)
-    plt.legend(title="Dataset", bbox_to_anchor=(1.05, 1), loc="upper left")
-    plt.tight_layout()
-    plt.savefig(output_path / "compression_speed.png", dpi=300)
-    plt.close()
-
-    # Create decompression speed plot
-    plt.figure()
-    sns.barplot(data=df, x="Algorithm", y="Decompression Speed (MB/s)", hue="Dataset")
-    plt.title("Decompression Speed by Algorithm and Dataset")
-    plt.ylabel("Speed (MB/s)")
-    plt.xticks(rotation=0)
-    plt.legend(title="Dataset", bbox_to_anchor=(1.05, 1), loc="upper left")
-    plt.tight_layout()
-    plt.savefig(output_path / "decompression_speed.png", dpi=300)
-    plt.close()
-
-    # Create compression ratio plot
-    plt.figure()
-    sns.barplot(data=df, x="Algorithm", y="Compression Ratio", hue="Dataset")
-    plt.title("Compression Ratio by Algorithm and Dataset")
-    plt.ylabel("Ratio (N:1)")
-    plt.xticks(rotation=0)
-    plt.legend(title="Dataset", bbox_to_anchor=(1.05, 1), loc="upper left")
-    plt.tight_layout()
-    plt.savefig(output_path / "compression_ratio.png", dpi=300)
-    plt.close()
+    # Original-style grouped bar charts: x=Algorithm, hue=Dataset.
+    for metric, title, ylabel, outfile in [
+        (
+            "Compression Speed (MB/s)",
+            "Compression Speed by Algorithm and Dataset",
+            "Speed (MB/s)",
+            "compression_speed.png",
+        ),
+        (
+            "Decompression Speed (MB/s)",
+            "Decompression Speed by Algorithm and Dataset",
+            "Speed (MB/s)",
+            "decompression_speed.png",
+        ),
+        (
+            "Compression Ratio",
+            "Compression Ratio by Algorithm and Dataset",
+            "Ratio (N:1)",
+            "compression_ratio.png",
+        ),
+    ]:
+        plt.figure()
+        sns.barplot(data=df, x="Algorithm", y=metric, hue="Dataset")
+        plt.title(title)
+        plt.ylabel(ylabel)
+        plt.xticks(rotation=0)
+        plt.legend(title="Dataset", bbox_to_anchor=(1.05, 1), loc="upper left")
+        plt.tight_layout()
+        plt.savefig(output_path / outfile, dpi=300)
+        plt.close()
 
     # Create a radar plot showing relative performance across all metrics
     if (
