@@ -91,7 +91,7 @@ jobs:
           ls -la dist/
 
       - name: Store distributions as artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: zpickle-dist
           path: dist/*
