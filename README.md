@@ -135,7 +135,7 @@ python -m benchmarks.benchmark
 
 ## License
 
-This project is distributed under the MIT License. [Read more >](LICENSE)
+MIT © [Nicolas Dupont](https://nico.codes) — [Read more >](LICENSE)
 
 ## Links
 
