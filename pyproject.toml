@@ -31,7 +31,7 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 dependencies = [
-    "compress-utils>=0.6.0",
+    "compress-utils>=0.7.1",
 ]
 dynamic = ["version"]
 
