@@ -28,15 +28,15 @@ RESERVED_BYTE = 0
 
 # Algorithm mapping (byte ID to name)
 ALGORITHMS = {
-    0: "none",    # No compression
-    1: "zstd",    # Zstandard compression
+    0: "none",  # No compression
+    1: "zstd",  # Zstandard compression
     2: "brotli",  # Brotli compression
-    3: "zlib",    # zlib compression
-    4: "lzma",    # LZMA/xz compression
-    5: "bzip2",   # bzip2 compression
-    6: "lz4",     # LZ4 compression
+    3: "zlib",  # zlib compression
+    4: "lzma",  # LZMA/xz compression
+    5: "bzip2",  # bzip2 compression
+    6: "lz4",  # LZ4 compression
     7: "snappy",  # Snappy compression
-    8: "gzip",    # gzip compression
+    8: "gzip",  # gzip compression
 }
 
 # Reverse mapping (name to byte ID)
