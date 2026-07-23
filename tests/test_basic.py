@@ -86,7 +86,17 @@ def test_dump_load_disk_file(test_data):
 
 def test_compression_algorithms(test_data):
     """Test all supported compression algorithms."""
-    algorithms = ["zstd", "brotli", "zlib", "lzma", "bzip2", "lz4", "none"]
+    algorithms = [
+        "zstd",
+        "brotli",
+        "zlib",
+        "lzma",
+        "bzip2",
+        "lz4",
+        "snappy",
+        "gzip",
+        "none",
+    ]
 
     for algorithm in algorithms:
         # Compress with specific algorithm
