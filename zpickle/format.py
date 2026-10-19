@@ -37,6 +37,7 @@ ALGORITHMS = {
     6: "lz4",  # LZ4 compression
     7: "snappy",  # Snappy compression
     8: "gzip",  # gzip compression
+    9: "deflate",  # raw DEFLATE (RFC 1951) compression
 }
 
 # Reverse mapping (name to byte ID)

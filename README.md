@@ -29,11 +29,12 @@ import zpickle as pickle
 
 - **Drop-in replacement** for the standard `pickle` module
 - **Transparent compression** — everything happens automatically
-- **Multiple algorithms** — choose `zstd`, `brotli`, `zlib`, `lzma`, `bzip2`, `lz4`, `snappy`, or `gzip` (powered by [`compress_utils`](https://github.com/dupontcyborg/compress-utils))
+- **Multiple algorithms** — choose `zstd`, `brotli`, `zlib`, `lzma`, `bzip2`, `lz4`, `snappy`, `gzip`, or `deflate` (powered by [`compress_utils`](https://github.com/dupontcyborg/compress-utils))
 - **Configure once, use everywhere** — set global defaults for your entire app
 - **Smaller data** — 2-10× smaller serialized data (depending on content and algorithm)
 - **Backward compatible** — automatically reads both compressed and regular pickle data
 - **Complete API compatibility** — all pickle functions work as expected
+- **Free-threading ready** — supports free-threaded Python 3.14t, where `dump`/`load` calls on different threads run in parallel
 
 ## Installation
 
@@ -78,23 +79,32 @@ compressed = zpickle.dumps(data, algorithm='zstd', level=6)
 
 ## Performance
 
-Each algorithm is benchmarked at compress-utils level 3 (zpickle's default) on two datasets (complex Python objects, JSON).
+Benchmarked on an AWS **c8g.xlarge** (4 vCPU Graviton4, 8 GiB) with a gp3 EBS volume at its default 125 MiB/s, using Python 3.13 and compress-utils 0.10.1 at level 3 (zpickle's default). Each dataset is written to a file with `zpickle.dump()` and read back with `zpickle.load()`; the page cache is dropped before every load, so reads come from the disk rather than memory. Speeds are MB/s of uncompressed pickle data (best of 5), so every codec is compared with plain `pickle` on the same file path. Datasets: JSON city data (10 MB pickled) and NumPy arrays (79 MB).
 
-Compression ratios versus standard `pickle` (higher is better):
+Load speed from disk (MB/s, higher is better):
 
-<img src="https://raw.githubusercontent.com/dupontcyborg/zpickle/main/benchmarks/results/compression_ratio.png" alt="Bar graph showing data compression ratios versus pickle">
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/dupontcyborg/zpickle/main/benchmarks/results/load_speed_dark.png">
+  <img src="https://raw.githubusercontent.com/dupontcyborg/zpickle/main/benchmarks/results/load_speed.png" alt="Bar charts of load speed from a gp3 disk for each codec and plain pickle, on JSON and NumPy arrays">
+</picture>
 
-Serialization speed (MB/s, higher is better):
+Compression ratio versus plain `pickle` (higher is better):
 
-<img src="https://raw.githubusercontent.com/dupontcyborg/zpickle/main/benchmarks/results/compression_speed.png" alt="Bar graph showing data compression speeds versus pickle">
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/dupontcyborg/zpickle/main/benchmarks/results/compression_ratio_dark.png">
+  <img src="https://raw.githubusercontent.com/dupontcyborg/zpickle/main/benchmarks/results/compression_ratio.png" alt="Bar charts of compression ratio versus plain pickle for each codec, on JSON and NumPy arrays">
+</picture>
 
-*Note: Performance varies by data characteristics. Run benchmarks on your specific data for accurate results.*
+*Note: Performance varies by data characteristics and storage. Run benchmarks on your own data and hardware for accurate results.*
 
-To run your own benchmarks, you can use:
+To run the file benchmark yourself (`--drop-caches` needs Linux and passwordless `sudo`), then draw the charts:
 
 ```bash
-python -m benchmarks.benchmark
+python -m benchmarks.file_benchmark run --dir /path/on/target/disk --out results.jsonl --drop-caches
+python -m benchmarks.file_benchmark plot results.jsonl --datasets cities-json numpy-arrays
 ```
+
+The in-memory benchmark (`dumps()`/`loads()`, no disk) is still available with `python -m benchmarks.benchmark`.
 
 ## How It Works
 
