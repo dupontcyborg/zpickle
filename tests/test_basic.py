@@ -5,7 +5,9 @@ Basic functionality tests for zpickle.
 import io
 import os
 import pickle
+import random
 import tempfile
+from concurrent.futures import ThreadPoolExecutor
 
 import pytest
 
@@ -95,6 +97,7 @@ def test_compression_algorithms(test_data):
         "lz4",
         "snappy",
         "gzip",
+        "deflate",
         "none",
     ]
 
@@ -224,3 +227,55 @@ def test_dump_load_large_data_with_streaming():
         finally:
             if os.path.exists(temp.name):
                 os.unlink(temp.name)
+
+
+@pytest.mark.parametrize("algorithm", sorted(zpickle.format.ALGORITHM_IDS))
+def test_streaming_large_binary_roundtrip(algorithm):
+    """Streaming dump/load of payloads spanning many chunks and write batches."""
+    rng = random.Random(0)
+    # Low-redundancy bytes compress poorly, so load() reads many chunks
+    blob = rng.randbytes(3 * zpickle.DEFAULT_CHUNK_SIZE + 123)
+    data = {
+        "blob": blob,
+        "records": [{"id": i, "name": f"item{i}"} for i in range(20000)],
+        "tail": blob[:1000],
+    }
+
+    buffer = io.BytesIO()
+    zpickle.dump(data, buffer, algorithm=algorithm)
+    buffer.seek(0)
+
+    assert zpickle.load(buffer) == data
+
+
+def test_concurrent_roundtrips():
+    """Round-trips from many threads at once (parallel on free-threaded Python)."""
+    algorithms = ["zstd", "lz4", "gzip", "deflate"]
+
+    def roundtrip(i):
+        data = {"id": i, "values": list(range(i, i + 50000)), "text": "abc" * i}
+        algorithm = algorithms[i % len(algorithms)]
+        assert zpickle.loads(zpickle.dumps(data, algorithm=algorithm)) == data
+
+        buffer = io.BytesIO()
+        zpickle.dump(data, buffer, algorithm=algorithm)
+        buffer.seek(0)
+        assert zpickle.load(buffer) == data
+
+    with ThreadPoolExecutor(max_workers=8) as executor:
+        list(executor.map(roundtrip, range(32)))
+
+
+@pytest.mark.parametrize("algorithm", ["zstd", "lz4", "none"])
+def test_streaming_protocol5_picklebuffer(algorithm):
+    """Protocol 5 (default from 3.14) writes large buffers as PickleBuffer."""
+    payload = bytearray(rng_bytes := random.Random(1).randbytes(1_000_000))
+    data = {"buffer": pickle.PickleBuffer(payload), "small": [1, 2, 3]}
+
+    buffer = io.BytesIO()
+    zpickle.dump(data, buffer, protocol=5, algorithm=algorithm)
+    buffer.seek(0)
+    restored = zpickle.load(buffer)
+
+    assert restored["buffer"] == rng_bytes
+    assert restored["small"] == [1, 2, 3]

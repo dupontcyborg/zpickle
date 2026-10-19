@@ -17,6 +17,11 @@ from .format import HEADER_SIZE, decode_header, encode_header, is_zpickle_data
 # Default chunk size for streaming operations (64KB)
 DEFAULT_CHUNK_SIZE = 64 * 1024
 
+# Minimum batch size handed to the compressor. compress-utils releases the GIL
+# for calls of at least 256KB, so batching pickle's ~64KB frames lets other
+# threads run while we compress.
+COMPRESS_BATCH_SIZE = 256 * 1024
+
 
 class CompressingWriter:
     """Wrapper that compresses data as it's written."""
@@ -24,17 +29,32 @@ class CompressingWriter:
     def __init__(self, file: BinaryIO, compressor: CompressStream):
         self.file = file
         self.compressor = compressor
+        self.pending = bytearray()
 
     def write(self, data: bytes) -> int:
-        """Compress and write data to the underlying file."""
-        compressed = self.compressor.compress(data)
+        """Buffer data and compress it in batches to the underlying file."""
+        # Protocol 5 (the default from Python 3.14) passes large buffers as
+        # PickleBuffer objects, which support the buffer protocol but not len()
+        with memoryview(data) as view:
+            size = view.nbytes
+        if not self.pending and size >= COMPRESS_BATCH_SIZE:
+            # Large writes (e.g. big bytes objects) skip the buffer copy
+            compressed = self.compressor.compress(data)
+        else:
+            self.pending += data
+            if len(self.pending) < COMPRESS_BATCH_SIZE:
+                return size
+            compressed = self.compressor.compress(self.pending)
+            self.pending = bytearray()
         if compressed:
             self.file.write(compressed)
-        return len(data)  # Return original data length for pickle
+        return size  # Return original data length for pickle
 
-    def flush(self):
-        """Flush any remaining compressed data."""
-        final = self.compressor.finish()
+    def finish(self):
+        """Compress any buffered data and end the compressed stream."""
+        final = self.compressor.compress(self.pending) if self.pending else b""
+        final += self.compressor.finish()
+        self.pending = bytearray()
         if final:
             self.file.write(final)
 
@@ -50,28 +70,29 @@ class DecompressingReader:
     ):
         self.file = file
         self.decompressor = decompressor
-        self.buffer = b""
+        # bytearray appends and front deletions are amortized O(1), so large
+        # reads assembled from many chunks don't re-copy the whole buffer
+        self.buffer = bytearray()
         self.chunk_size = chunk_size
         self.finished = False
 
     def read(self, size: int = -1) -> bytes:
         """Read and decompress data from the underlying file."""
         # If size=-1, read everything
-        if size == -1:
+        if size is None or size < 0:
             # Read and decompress all remaining data
             while not self.finished:
                 self._decompress_next_chunk()
-            result = self.buffer
-            self.buffer = b""
-            return result
-
-        # Read enough to satisfy the request
-        while len(self.buffer) < size and not self.finished:
-            self._decompress_next_chunk()
+            size = len(self.buffer)
+        else:
+            # Read enough to satisfy the request
+            while len(self.buffer) < size and not self.finished:
+                self._decompress_next_chunk()
 
         # Return requested amount from buffer
-        result = self.buffer[:size]
-        self.buffer = self.buffer[size:]
+        with memoryview(self.buffer) as view, view[:size] as head:
+            result = bytes(head)
+        del self.buffer[:size]
         return result
 
     def readline(self) -> bytes:
@@ -284,8 +305,8 @@ def dump(
         buffer_callback=buffer_callback,
     )
 
-    # Flush any remaining compressed data
-    writer.flush()
+    # Compress any buffered data and end the stream
+    writer.finish()
 
 
 def load(
