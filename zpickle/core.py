@@ -5,6 +5,7 @@ This module implements the main serialization and deserialization
 functions (dumps, loads, dump, load) with compression support.
 """
 
+import io
 import pickle
 import warnings
 from typing import Any, BinaryIO, Optional
@@ -60,7 +61,13 @@ class CompressingWriter:
 
 
 class DecompressingReader:
-    """Wrapper that decompresses data as it's read."""
+    """Wrapper that decompresses data as it's read.
+
+    The decompressor must be a single_stream DecompressStream, so reading stops
+    at the end of the compressed stream. Bytes read past that end are handed
+    back to the file, leaving it positioned at whatever follows the stream
+    (e.g. the next zpickle object).
+    """
 
     def __init__(
         self,
@@ -75,6 +82,12 @@ class DecompressingReader:
         self.buffer = bytearray()
         self.chunk_size = chunk_size
         self.finished = False
+        # Seekable files take back over-read bytes with a seek. Non-seekable
+        # buffered streams (pipes, sockets) are peeked instead, consuming only
+        # the bytes the decompressor used. Other files lose any over-read bytes.
+        seekable = getattr(file, "seekable", None)
+        self.seekable = bool(seekable and seekable())
+        self._peek = None if self.seekable else getattr(file, "peek", None)
 
     def read(self, size: int = -1) -> bytes:
         """Read and decompress data from the underlying file."""
@@ -96,23 +109,89 @@ class DecompressingReader:
         return result
 
     def readline(self) -> bytes:
-        """Read a line - pickle doesn't actually use this but requires it."""
-        # Pickle requires this method but doesn't use it for protocol >= 2
-        return b""
+        """Read and decompress up to and including the next newline."""
+        # Only protocols 0 and 1 read lines, for their text opcodes
+        start = 0
+        while True:
+            end = self.buffer.find(b"\n", start)
+            if end >= 0:
+                return self.read(end + 1)
+            if self.finished:
+                return self.read()
+            start = len(self.buffer)
+            self._decompress_next_chunk()
+
+    def drain(self):
+        """Read to the end of the compressed stream.
+
+        pickle stops reading at its STOP opcode, which can come before the end
+        of the compressed stream (e.g. a trailing checksum). Draining verifies
+        the rest of the stream and leaves the file just past it.
+        """
+        while not self.finished:
+            self._decompress_next_chunk()
 
     def _decompress_next_chunk(self):
         """Read and decompress the next chunk from file."""
-        compressed_chunk = self.file.read(self.chunk_size)
-        if compressed_chunk:
-            decompressed = self.decompressor.decompress(compressed_chunk)
-            if decompressed:
-                self.buffer += decompressed
+        if self._peek is not None:
+            compressed_chunk = self._peek(self.chunk_size)
         else:
-            # File exhausted, finish decompression
+            compressed_chunk = self.file.read(self.chunk_size)
+
+        if not compressed_chunk:
+            # File exhausted before the end of the stream: finish() raises if
+            # the stream is truncated
             final = self.decompressor.finish()
             if final:
                 self.buffer += final
             self.finished = True
+            return
+
+        decompressed = self.decompressor.decompress(compressed_chunk)
+        if decompressed:
+            self.buffer += decompressed
+
+        unused = len(self.decompressor.unused_data) if self.decompressor.eof else 0
+        if self._peek is not None:
+            self.file.read(len(compressed_chunk) - unused)
+        elif unused and self.seekable:
+            self.file.seek(-unused, io.SEEK_CUR)
+        if self.decompressor.eof:
+            self.finished = True
+
+
+class HeaderPrependReader:
+    """Wrapper that yields already-read header bytes before the rest of the file.
+
+    Used to read regular pickle data from streams that can't seek back over the
+    bytes read while checking for a zpickle header. Header bytes the pickle
+    didn't use are left in .header.
+    """
+
+    def __init__(self, header: bytes, file: BinaryIO):
+        self.header = header
+        self.file = file
+
+    def read(self, size: int = -1) -> bytes:
+        """Read from the header bytes, then from the file."""
+        if size is None or size < 0:
+            result = self.header + self.file.read()
+            self.header = b""
+            return result
+        result = self.header[:size]
+        self.header = self.header[size:]
+        if len(result) < size:
+            result += self.file.read(size - len(result))
+        return result
+
+    def readline(self) -> bytes:
+        """Read up to and including the next newline."""
+        end = self.header.find(b"\n")
+        if end >= 0:
+            return self.read(end + 1)
+        result = self.header + self.file.readline()
+        self.header = b""
+        return result
 
 
 def dumps(
@@ -340,6 +419,12 @@ def load(
         This function supports non-seekable streams (pipes, sockets) by
         buffering the header bytes instead of seeking.
 
+        As with pickle, objects written by consecutive dump() calls can be
+        read back by consecutive load() calls: each load() leaves the file
+        positioned at the next object. This needs a seekable file or one with
+        a peek() method (e.g. io.BufferedReader, which covers pipes and
+        sockets opened in binary mode).
+
     Example:
         >>> import zpickle
         >>> with open('data.zpkl', 'rb') as f:
@@ -376,18 +461,21 @@ def load(
                     buffers=buffers,
                 )
 
-            # Create streaming decompressor
-            decompressor = DecompressStream(algorithm)
+            # Create streaming decompressor that stops at the end of this
+            # object's stream, so further objects in the file can be loaded
+            decompressor = DecompressStream(algorithm, single_stream=True)
             reader = DecompressingReader(file, decompressor)
 
             # Stream file → decompress → pickle.load()
-            return pickle.load(
+            obj = pickle.load(
                 reader,
                 fix_imports=fix_imports,
                 encoding=encoding,
                 errors=errors,
                 buffers=buffers,
             )
+            reader.drain()
+            return obj
 
         except Exception as e:
             if strict:
@@ -409,35 +497,6 @@ def load(
             )
     else:
         # Not zpickle format - include header bytes for non-seekable streams
-        # We need to wrap the file with a reader that first yields the header
-        class HeaderPrependReader:
-            def __init__(self, header_bytes, file_obj):
-                self.header = header_bytes
-                self.file = file_obj
-                self.header_consumed = False
-
-            def read(self, size=-1):
-                if not self.header_consumed:
-                    self.header_consumed = True
-                    if size == -1:
-                        return self.header + self.file.read()
-                    elif size <= len(self.header):
-                        result = self.header[:size]
-                        self.header = self.header[size:]
-                        self.header_consumed = len(self.header) == 0
-                        return result
-                    else:
-                        remaining = size - len(self.header)
-                        result = self.header + self.file.read(remaining)
-                        self.header = b""
-                        return result
-                else:
-                    return self.file.read(size)
-
-            def readline(self):
-                """Read a line - pickle doesn't actually use this but requires it."""
-                return b""
-
         reader = HeaderPrependReader(header, file)
         return pickle.load(
             reader,

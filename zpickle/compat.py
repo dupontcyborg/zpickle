@@ -8,9 +8,10 @@ with the pickle API but add transparent compression support.
 import io
 import pickle
 
-from compress_utils import compress, decompress
+from compress_utils import DecompressStream, compress
 
 from .config import get_config
+from .core import DecompressingReader, HeaderPrependReader
 from .format import HEADER_SIZE, decode_header, encode_header, is_zpickle_data
 
 
@@ -89,6 +90,24 @@ class Pickler(pickle.Pickler):
         self.file.write(header + compressed_data)
 
 
+class _CurrentObjectReader:
+    """File object pickle.Unpickler reads from, forwarding to the current object.
+
+    pickle.Unpickler binds its file once, at construction. Each zpickle object
+    has its own header and compressed stream, so load() points this at a new
+    reader per object while the same unpickler, and its memo, is reused.
+    """
+
+    def __init__(self):
+        self.source = None
+
+    def read(self, size=-1):
+        return self.source.read(size)
+
+    def readline(self):
+        return self.source.readline()
+
+
 class Unpickler(pickle.Unpickler):
     """Subclass of pickle.Unpickler that handles compressed input.
 
@@ -103,6 +122,10 @@ class Unpickler(pickle.Unpickler):
         This class supports non-seekable streams (pipes, sockets) by
         buffering the header bytes instead of seeking.
 
+        As with pickle.Unpickler, each load() call reads the next object, so
+        objects written by repeated Pickler.dump() calls can be read back
+        (see zpickle.load() for the file types this needs).
+
     Example:
         >>> import zpickle
         >>> with open('data.zpkl', 'rb') as f:
@@ -114,46 +137,47 @@ class Unpickler(pickle.Unpickler):
         self, file, *, fix_imports=True, encoding="ASCII", errors="strict", buffers=None
     ):
         self.file = file
+        self._reader = _CurrentObjectReader()
+        # Bytes read while checking for a header that a short regular pickle
+        # didn't use; they start the next object
+        self._pending = b""
 
-        # Read the header to check format
-        header = file.read(HEADER_SIZE)
+        super().__init__(
+            self._reader,
+            fix_imports=fix_imports,
+            encoding=encoding,
+            errors=errors,
+            buffers=buffers,
+        )
 
-        if is_zpickle_data(header):
-            # This is zpickle data, get algorithm info
-            _, algorithm, _, _ = decode_header(header)
+    def load(self):
+        """Read and decompress the next pickled object from the file.
 
-            # Read the rest of the file
-            compressed_data = file.read()
+        Returns:
+            The unpickled Python object
+        """
+        header = self._pending + self.file.read(HEADER_SIZE - len(self._pending))
+        self._pending = b""
 
-            # If algorithm is 'none', data wasn't compressed
-            if algorithm == "none":
-                pickled_data = compressed_data
-            else:
-                # Decompress the data
-                pickled_data = decompress(compressed_data, algorithm)
+        if not is_zpickle_data(header):
+            # Regular pickle data
+            prefixed = HeaderPrependReader(header, self.file)
+            self._reader.source = prefixed
+            obj = super().load()
+            self._pending = prefixed.header
+            return obj
 
-            # Create a BytesIO with the unpickled data
-            self._buffer = io.BytesIO(pickled_data)
+        _, algorithm, _, _ = decode_header(header)
 
-            # Initialize the unpickler with our buffer
-            super().__init__(
-                self._buffer,
-                fix_imports=fix_imports,
-                encoding=encoding,
-                errors=errors,
-                buffers=buffers,
-            )
-        else:
-            # Not zpickle format - buffer header bytes for non-seekable stream support
-            # Read remaining data and prepend header
-            remaining_data = file.read()
-            self._buffer = io.BytesIO(header + remaining_data)
+        if algorithm == "none":
+            # Data wasn't compressed, read it directly from the file
+            self._reader.source = self.file
+            return super().load()
 
-            # Initialize the unpickler with our buffer
-            super().__init__(
-                self._buffer,
-                fix_imports=fix_imports,
-                encoding=encoding,
-                errors=errors,
-                buffers=buffers,
-            )
+        stream = DecompressingReader(
+            self.file, DecompressStream(algorithm, single_stream=True)
+        )
+        self._reader.source = stream
+        obj = super().load()
+        stream.drain()
+        return obj
