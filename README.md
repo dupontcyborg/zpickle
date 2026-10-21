@@ -34,7 +34,7 @@ import zpickle as pickle
 - **Smaller data** — 2-10× smaller serialized data (depending on content and algorithm)
 - **Backward compatible** — automatically reads both compressed and regular pickle data
 - **Complete API compatibility** — all pickle functions work as expected
-- **Free-threading ready** — supports free-threaded Python 3.14t, where `dump`/`load` calls on different threads run in parallel
+- **Free-threading ready** — supports free-threaded Python 3.14t and 3.15t, where `dump`/`load` calls on different threads run in parallel
 
 ## Installation
 
