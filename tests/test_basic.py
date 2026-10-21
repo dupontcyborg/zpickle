@@ -323,8 +323,22 @@ def test_consecutive_dump_load_mixed_and_large(tmp_path):
         assert f.read() == b""
 
 
+class SeekableClaimingReader:
+    """Pipe reader that reports itself seekable, as pipes do on Windows."""
+
+    def __init__(self, reader):
+        self._reader = reader
+
+    def seekable(self):
+        return True
+
+    def __getattr__(self, name):
+        return getattr(self._reader, name)
+
+
+@pytest.mark.parametrize("claims_seekable", [False, True])
 @pytest.mark.parametrize("algorithm", ["zstd", "gzip", "snappy"])
-def test_consecutive_load_from_pipe(algorithm):
+def test_consecutive_load_from_pipe(algorithm, claims_seekable):
     """Non-seekable buffered streams are peeked so no following bytes are lost."""
     rng = random.Random(3)
     objects = [rng.randbytes(200_000), {"middle": True}, rng.randbytes(100_000)]
@@ -342,8 +356,8 @@ def test_consecutive_load_from_pipe(algorithm):
     with ThreadPoolExecutor(max_workers=1) as executor:
         future = executor.submit(writer)
         with os.fdopen(read_fd, "rb") as r:
-            assert not r.seekable()
-            assert [zpickle.load(r) for _ in objects] == objects
+            reader = SeekableClaimingReader(r) if claims_seekable else r
+            assert [zpickle.load(reader) for _ in objects] == objects
             assert r.read() == b""
         future.result()
 

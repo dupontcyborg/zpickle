@@ -6,7 +6,9 @@ functions (dumps, loads, dump, load) with compression support.
 """
 
 import io
+import os
 import pickle
+import stat
 import warnings
 from typing import Any, BinaryIO, Optional
 
@@ -60,6 +62,20 @@ class CompressingWriter:
             self.file.write(final)
 
 
+def _can_seek_back(file: BinaryIO) -> bool:
+    """Whether bytes read from file can be given back with a relative seek."""
+    seekable = getattr(file, "seekable", None)
+    if not (seekable and seekable()):
+        return False
+    try:
+        fd = file.fileno()
+    except (AttributeError, OSError):
+        # In-memory files like BytesIO
+        return True
+    # Windows reports pipes as seekable, but seeking back on them fails
+    return stat.S_ISREG(os.fstat(fd).st_mode)
+
+
 class DecompressingReader:
     """Wrapper that decompresses data as it's read.
 
@@ -85,8 +101,7 @@ class DecompressingReader:
         # Seekable files take back over-read bytes with a seek. Non-seekable
         # buffered streams (pipes, sockets) are peeked instead, consuming only
         # the bytes the decompressor used. Other files lose any over-read bytes.
-        seekable = getattr(file, "seekable", None)
-        self.seekable = bool(seekable and seekable())
+        self.seekable = _can_seek_back(file)
         self._peek = None if self.seekable else getattr(file, "peek", None)
 
     def read(self, size: int = -1) -> bytes:
