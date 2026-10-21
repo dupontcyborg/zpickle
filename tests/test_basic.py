@@ -378,3 +378,116 @@ def test_load_truncated_stream_raises(algorithm):
 
     with pytest.raises(Exception):
         zpickle.load(io.BytesIO(buffer.getvalue()[:-3]))
+
+
+@pytest.mark.parametrize("algorithm", sorted(zpickle.format.ALGORITHM_IDS))
+def test_unpickler_consecutive_loads(algorithm):
+    """Repeated Unpickler.load() calls read back repeated Pickler.dump() calls."""
+    objects = MULTI_OBJECTS + [{"tiny": 1}]  # below min_size, stored uncompressed
+    buffer = io.BytesIO()
+    pickler = zpickle.Pickler(buffer, algorithm=algorithm)
+    for obj in objects:
+        pickler.dump(obj)
+    buffer.write(b"trailing bytes")
+    buffer.seek(0)
+
+    unpickler = zpickle.Unpickler(buffer)
+    assert [unpickler.load() for _ in objects] == objects
+    assert buffer.read() == b"trailing bytes"
+
+
+def test_unpickler_shares_memo_across_loads():
+    """As with pickle, an object dumped twice by one Pickler loads as one object."""
+    shared = {"values": list(range(1000))}
+    buffer = io.BytesIO()
+    pickler = zpickle.Pickler(buffer)
+    pickler.dump(shared)
+    pickler.dump(shared)  # written as a reference to the first dump
+    buffer.seek(0)
+
+    unpickler = zpickle.Unpickler(buffer)
+    first, second = unpickler.load(), unpickler.load()
+    assert first == shared
+    assert second is first
+
+
+def test_unpickler_mixed_with_regular_pickles():
+    """Regular pickles shorter than a zpickle header don't swallow the next object."""
+    objects = [1, {"values": list(range(1000))}, None, "end"]
+    buffer = io.BytesIO()
+    pickle.dump(objects[0], buffer)
+    zpickle.dump(objects[1], buffer)
+    pickle.dump(objects[2], buffer, protocol=2)
+    zpickle.dump(objects[3], buffer)
+    assert len(pickle.dumps(objects[0])) < zpickle.format.HEADER_SIZE
+    buffer.seek(0)
+
+    unpickler = zpickle.Unpickler(buffer)
+    assert [unpickler.load() for _ in objects] == objects
+    with pytest.raises(EOFError):
+        unpickler.load()
+
+
+def test_unpickler_from_pipe():
+    """Unpickler reads consecutive objects from a non-seekable stream."""
+    rng = random.Random(4)
+    objects = [rng.randbytes(200_000), {"middle": True}, rng.randbytes(100_000)]
+
+    payload = io.BytesIO()
+    pickler = zpickle.Pickler(payload)
+    for obj in objects:
+        pickler.dump(obj)
+
+    read_fd, write_fd = os.pipe()
+
+    def writer():
+        with os.fdopen(write_fd, "wb") as w:
+            w.write(payload.getvalue())
+
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        future = executor.submit(writer)
+        with os.fdopen(read_fd, "rb") as r:
+            unpickler = zpickle.Unpickler(r)
+            assert [unpickler.load() for _ in objects] == objects
+            assert r.read() == b""
+        future.result()
+
+
+def test_unpickler_subclass_find_class():
+    """Overrides on an Unpickler subclass still apply to every load()."""
+
+    class RestrictedUnpickler(zpickle.Unpickler):
+        def find_class(self, module, name):
+            raise pickle.UnpicklingError(f"blocked {module}.{name}")
+
+    buffer = io.BytesIO()
+    zpickle.dump([1, 2, 3], buffer)
+    zpickle.dump(SampleObject("x"), buffer)
+    buffer.seek(0)
+
+    unpickler = RestrictedUnpickler(buffer)
+    assert unpickler.load() == [1, 2, 3]
+    with pytest.raises(pickle.UnpicklingError, match="blocked"):
+        unpickler.load()
+
+
+@pytest.mark.parametrize("algorithm", ["zstd", "none"])
+@pytest.mark.parametrize("protocol", [0, 1])
+def test_text_protocols_streaming(algorithm, protocol):
+    """Protocols 0 and 1 read lines, which the streaming readers must support."""
+    data = {"text": "line\nbreaks", "values": [1, 2.5, "x" * 3000]}
+
+    buffer = io.BytesIO()
+    zpickle.dump(data, buffer, protocol=protocol, algorithm=algorithm)
+    zpickle.dump(data, buffer, protocol=protocol, algorithm=algorithm)
+    buffer.seek(0)
+    assert zpickle.load(buffer) == data
+    assert zpickle.load(buffer) == data
+
+    buffer.seek(0)
+    unpickler = zpickle.Unpickler(buffer)
+    assert unpickler.load() == data
+    assert unpickler.load() == data
+
+    plain = io.BytesIO(pickle.dumps(data, protocol=protocol))
+    assert zpickle.load(plain) == data

@@ -109,9 +109,17 @@ class DecompressingReader:
         return result
 
     def readline(self) -> bytes:
-        """Read a line - pickle doesn't actually use this but requires it."""
-        # Pickle requires this method but doesn't use it for protocol >= 2
-        return b""
+        """Read and decompress up to and including the next newline."""
+        # Only protocols 0 and 1 read lines, for their text opcodes
+        start = 0
+        while True:
+            end = self.buffer.find(b"\n", start)
+            if end >= 0:
+                return self.read(end + 1)
+            if self.finished:
+                return self.read()
+            start = len(self.buffer)
+            self._decompress_next_chunk()
 
     def drain(self):
         """Read to the end of the compressed stream.
@@ -150,6 +158,40 @@ class DecompressingReader:
             self.file.seek(-unused, io.SEEK_CUR)
         if self.decompressor.eof:
             self.finished = True
+
+
+class HeaderPrependReader:
+    """Wrapper that yields already-read header bytes before the rest of the file.
+
+    Used to read regular pickle data from streams that can't seek back over the
+    bytes read while checking for a zpickle header. Header bytes the pickle
+    didn't use are left in .header.
+    """
+
+    def __init__(self, header: bytes, file: BinaryIO):
+        self.header = header
+        self.file = file
+
+    def read(self, size: int = -1) -> bytes:
+        """Read from the header bytes, then from the file."""
+        if size is None or size < 0:
+            result = self.header + self.file.read()
+            self.header = b""
+            return result
+        result = self.header[:size]
+        self.header = self.header[size:]
+        if len(result) < size:
+            result += self.file.read(size - len(result))
+        return result
+
+    def readline(self) -> bytes:
+        """Read up to and including the next newline."""
+        end = self.header.find(b"\n")
+        if end >= 0:
+            return self.read(end + 1)
+        result = self.header + self.file.readline()
+        self.header = b""
+        return result
 
 
 def dumps(
@@ -455,35 +497,6 @@ def load(
             )
     else:
         # Not zpickle format - include header bytes for non-seekable streams
-        # We need to wrap the file with a reader that first yields the header
-        class HeaderPrependReader:
-            def __init__(self, header_bytes, file_obj):
-                self.header = header_bytes
-                self.file = file_obj
-                self.header_consumed = False
-
-            def read(self, size=-1):
-                if not self.header_consumed:
-                    self.header_consumed = True
-                    if size == -1:
-                        return self.header + self.file.read()
-                    elif size <= len(self.header):
-                        result = self.header[:size]
-                        self.header = self.header[size:]
-                        self.header_consumed = len(self.header) == 0
-                        return result
-                    else:
-                        remaining = size - len(self.header)
-                        result = self.header + self.file.read(remaining)
-                        self.header = b""
-                        return result
-                else:
-                    return self.file.read(size)
-
-            def readline(self):
-                """Read a line - pickle doesn't actually use this but requires it."""
-                return b""
-
         reader = HeaderPrependReader(header, file)
         return pickle.load(
             reader,
